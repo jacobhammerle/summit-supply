@@ -149,9 +149,10 @@ already installed. Every Argent tool needs --udid ${UDID} - always pass that \
 exact udid. Use the Argent MCP tools to launch the app, read the screen, tap, \
 type, and verify results. Argent gesture coordinates are normalized 0.0-1.0 \
 fractions of the screen, not pixels. After each action, read the screen again \
-to confirm the result. Save a screenshot of the final state to \
-./artifacts/${FLOW}-final.png. End your final message with exactly \
-'VERDICT: PASS' or 'VERDICT: FAIL' and a one-sentence reason."
+to confirm the result. Prefer the accessibility tree (describe) over \
+screenshots for verification - it is faster and shows exact text. End your \
+final message with exactly 'VERDICT: PASS' or 'VERDICT: FAIL' and a \
+one-sentence reason."
 
 echo "==> Starting QA agent for flow: ${FLOW}"
 
@@ -160,15 +161,31 @@ echo "==> Starting QA agent for flow: ${FLOW}"
 # CLAUDE_CODE_OAUTH_TOKEN. The EAS worker is a clean checkout with no hooks,
 # plugins, or CLAUDE.md, so the run stays reproducible without it.
 # Switch back to `claude --bare` if you move to an ANTHROPIC_API_KEY.
-# --permission-mode dontAsk: deny anything not on the allow list.
-OUTPUT="$(claude -p "$(cat "scripts/agent-qa/flows/${FLOW}.md")" \
+#
+# Output goes through `tee <file>`, NEVER `tee /dev/stderr`: on the Linux
+# workers stderr is a socket, opening it by path fails with ENXIO, tee dies,
+# and pipefail turns a passing agent run into a job failure (while claude
+# hangs on a reader-less pipe).
+#
+# `timeout 900` bounds a wedged agent (e.g. an MCP call stuck on the tunnel);
+# MCP_TOOL_TIMEOUT bounds each individual tool call so one stuck call fails
+# fast instead of eating the whole budget. The agent's exit code is
+# deliberately ignored - the verdict text in the log is the pass signal.
+AGENT_LOG="./artifacts/${FLOW}-agent.log"
+MCP_TIMEOUT=60000 MCP_TOOL_TIMEOUT=120000 \
+timeout 900 claude -p "$(cat "scripts/agent-qa/flows/${FLOW}.md")" \
   --append-system-prompt "${SYSTEM_PROMPT}" \
   --mcp-config "${MCP_CONFIG}" \
   --allowedTools "mcp__argent" \
   --permission-mode dontAsk \
-  --max-turns 60 </dev/null | tee /dev/stderr)"
+  --max-turns 60 </dev/null 2>&1 | tee "${AGENT_LOG}" || true
 
-if grep -qi "VERDICT: PASS" <<< "${OUTPUT}"; then
+# Final screenshot, captured deterministically by the script (the agent only
+# has argent tools, so it cannot write files into ./artifacts itself).
+argent run screenshot --udid "${UDID}" --scale 1.0 \
+  --includeImageInContext false --out "./artifacts/${FLOW}-final.png" || true
+
+if grep -qi "VERDICT: PASS" "${AGENT_LOG}"; then
   echo "==> PASS (${FLOW})"
   exit 0
 fi

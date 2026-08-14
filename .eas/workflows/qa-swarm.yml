@@ -99,6 +99,13 @@ jobs:
           extensions: [app]
       - id: run_agent_qa
         run: bash ./scripts/agent-qa/run-flow.sh "${{ steps.download_build.outputs.artifact_path }}"
+      - uses: eas/upload_artifact
+        if: ${{ always() }}
+        with:
+          type: other
+          name: qa-signup
+          path: |
+            artifacts/**/*
 
   qa_checkout:
     name: "QA agent 2: checkout"
@@ -122,6 +129,13 @@ jobs:
           extensions: [app]
       - id: run_agent_qa
         run: bash ./scripts/agent-qa/run-flow.sh "${{ steps.download_build.outputs.artifact_path }}"
+      - uses: eas/upload_artifact
+        if: ${{ always() }}
+        with:
+          type: other
+          name: qa-checkout
+          path: |
+            artifacts/**/*
 
   qa_settings:
     name: "QA agent 3: settings"
@@ -145,6 +159,13 @@ jobs:
           extensions: [app]
       - id: run_agent_qa
         run: bash ./scripts/agent-qa/run-flow.sh "${{ steps.download_build.outputs.artifact_path }}"
+      - uses: eas/upload_artifact
+        if: ${{ always() }}
+        with:
+          type: other
+          name: qa-settings
+          path: |
+            artifacts/**/*
 
   qa_support:
     name: "QA agent 4: support ticket"
@@ -168,6 +189,13 @@ jobs:
           extensions: [app]
       - id: run_agent_qa
         run: bash ./scripts/agent-qa/run-flow.sh "${{ steps.download_build.outputs.artifact_path }}"
+      - uses: eas/upload_artifact
+        if: ${{ always() }}
+        with:
+          type: other
+          name: qa-support
+          path: |
+            artifacts/**/*
 
   qa_offline:
     name: "QA agent 5: offline sync"
@@ -191,3 +219,10 @@ jobs:
           extensions: [app]
       - id: run_agent_qa
         run: bash ./scripts/agent-qa/run-flow.sh "${{ steps.download_build.outputs.artifact_path }}"
+      - uses: eas/upload_artifact
+        if: ${{ always() }}
+        with:
+          type: other
+          name: qa-offline
+          path: |
+            artifacts/**/*
