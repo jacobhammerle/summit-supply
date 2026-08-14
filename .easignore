@@ -1,0 +1,13 @@
+# Files excluded from the archive uploaded by `eas workflow:run` / `eas build`.
+# This project is not a git repository, so EAS has no .gitignore to honour.
+# Without this file the upload would include node_modules/ and ios/ (~1.8 GB).
+#
+# EAS installs dependencies (eas/install_node_modules) and runs prebuild on the
+# worker, so neither directory needs to be uploaded.
+
+node_modules/
+ios/
+android/
+.expo/
+artifacts/
+*.log

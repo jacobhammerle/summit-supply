@@ -1,0 +1,31 @@
+{
+  "expo": {
+    "name": "Summit Supply",
+    "slug": "summit-supply",
+    "version": "1.0.0",
+    "scheme": "summitsupply",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "platforms": [
+      "ios"
+    ],
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "dev.expo.summitsupply"
+    },
+    "plugins": [
+      "expo-router"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "23349c79-ac90-4912-a4a8-2945446c24aa"
+      }
+    },
+    "owner": "sunrise-solutions"
+  }
+}

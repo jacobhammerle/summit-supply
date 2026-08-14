@@ -1,0 +1,179 @@
+# QA Swarm — five Argent-driven QA agents on five iOS Simulators in parallel.
+#
+# Kick off manually:
+#   eas workflow:run qa-swarm.yml
+#
+# Job graph:
+#   fingerprint ─→ ios_get_build ─→ ios_repack (reuse) ──┐
+#                                └→ ios_build (fresh) ───┤
+#                                                        ├─→ qa_signup
+#                                                        ├─→ qa_checkout
+#                                                        ├─→ qa_settings
+#                                                        ├─→ qa_support
+#                                                        └─→ qa_offline
+#
+# Each qa_* job runs on its own macOS worker with its own iOS Simulator.
+# Each job runs a headless Claude Code agent with Argent (Software
+# Mansion) as its MCP server. Argent gives the agent control of the app:
+# launch, tap, type, screenshots, accessibility tree.
+#
+# Requires: ANTHROPIC_API_KEY set as an EAS environment variable in the
+# "preview" environment.
+
+name: qa-swarm
+
+concurrency:
+  group: ${{ workflow.filename }}-${{ github.ref }}
+  cancel_in_progress: true
+
+jobs:
+  fingerprint:
+    name: Calculate iOS fingerprint
+    type: fingerprint
+    environment: preview
+
+  ios_get_build:
+    name: Find reusable simulator build
+    needs: [fingerprint]
+    type: get-build
+    params:
+      platform: ios
+      profile: simulator
+      simulator: true
+      fingerprint_hash: ${{ needs.fingerprint.outputs.ios_fingerprint_hash }}
+      wait_for_in_progress: true
+
+  ios_repack:
+    name: Reuse simulator build
+    needs: [ios_get_build]
+    if: ${{ needs.ios_get_build.outputs.build_id }}
+    type: repack
+    params:
+      build_id: ${{ needs.ios_get_build.outputs.build_id }}
+      profile: simulator
+      message: "QA swarm repack"
+
+  ios_build:
+    name: Build iOS simulator app
+    needs: [ios_get_build]
+    if: ${{ !needs.ios_get_build.outputs.build_id }}
+    type: build
+    params:
+      platform: ios
+      profile: simulator
+      message: "QA swarm build"
+
+  qa_signup:
+    name: "QA agent 1: sign up"
+    after: [ios_repack, ios_build]
+    if: ${{ after.ios_repack.status == 'success' || after.ios_build.status == 'success' }}
+    environment: preview
+    runs_on: macos-medium
+    env:
+      BUILD_ID: ${{ after.ios_repack.outputs.build_id || after.ios_build.outputs.build_id }}
+      FLOW: signup
+      APPLICATION_ID: dev.expo.summitsupply
+      IOS_SIM_DEVICE: iPhone 17
+    steps:
+      - uses: eas/checkout
+      - uses: eas/install_node_modules
+      - run: npm install -g @swmansion/argent @anthropic-ai/claude-code
+      - uses: eas/download_build
+        id: download_build
+        with:
+          build_id: ${{ env.BUILD_ID }}
+          extensions: [app]
+      - id: run_agent_qa
+        run: bash ./scripts/agent-qa/run-flow.sh "${{ steps.download_build.outputs.artifact_path }}"
+
+  qa_checkout:
+    name: "QA agent 2: checkout"
+    after: [ios_repack, ios_build]
+    if: ${{ after.ios_repack.status == 'success' || after.ios_build.status == 'success' }}
+    environment: preview
+    runs_on: macos-medium
+    env:
+      BUILD_ID: ${{ after.ios_repack.outputs.build_id || after.ios_build.outputs.build_id }}
+      FLOW: checkout
+      APPLICATION_ID: dev.expo.summitsupply
+      IOS_SIM_DEVICE: iPhone 17
+    steps:
+      - uses: eas/checkout
+      - uses: eas/install_node_modules
+      - run: npm install -g @swmansion/argent @anthropic-ai/claude-code
+      - uses: eas/download_build
+        id: download_build
+        with:
+          build_id: ${{ env.BUILD_ID }}
+          extensions: [app]
+      - id: run_agent_qa
+        run: bash ./scripts/agent-qa/run-flow.sh "${{ steps.download_build.outputs.artifact_path }}"
+
+  qa_settings:
+    name: "QA agent 3: settings"
+    after: [ios_repack, ios_build]
+    if: ${{ after.ios_repack.status == 'success' || after.ios_build.status == 'success' }}
+    environment: preview
+    runs_on: macos-medium
+    env:
+      BUILD_ID: ${{ after.ios_repack.outputs.build_id || after.ios_build.outputs.build_id }}
+      FLOW: settings
+      APPLICATION_ID: dev.expo.summitsupply
+      IOS_SIM_DEVICE: iPhone 17
+    steps:
+      - uses: eas/checkout
+      - uses: eas/install_node_modules
+      - run: npm install -g @swmansion/argent @anthropic-ai/claude-code
+      - uses: eas/download_build
+        id: download_build
+        with:
+          build_id: ${{ env.BUILD_ID }}
+          extensions: [app]
+      - id: run_agent_qa
+        run: bash ./scripts/agent-qa/run-flow.sh "${{ steps.download_build.outputs.artifact_path }}"
+
+  qa_support:
+    name: "QA agent 4: support ticket"
+    after: [ios_repack, ios_build]
+    if: ${{ after.ios_repack.status == 'success' || after.ios_build.status == 'success' }}
+    environment: preview
+    runs_on: macos-medium
+    env:
+      BUILD_ID: ${{ after.ios_repack.outputs.build_id || after.ios_build.outputs.build_id }}
+      FLOW: support
+      APPLICATION_ID: dev.expo.summitsupply
+      IOS_SIM_DEVICE: iPhone 17
+    steps:
+      - uses: eas/checkout
+      - uses: eas/install_node_modules
+      - run: npm install -g @swmansion/argent @anthropic-ai/claude-code
+      - uses: eas/download_build
+        id: download_build
+        with:
+          build_id: ${{ env.BUILD_ID }}
+          extensions: [app]
+      - id: run_agent_qa
+        run: bash ./scripts/agent-qa/run-flow.sh "${{ steps.download_build.outputs.artifact_path }}"
+
+  qa_offline:
+    name: "QA agent 5: offline sync"
+    after: [ios_repack, ios_build]
+    if: ${{ after.ios_repack.status == 'success' || after.ios_build.status == 'success' }}
+    environment: preview
+    runs_on: macos-medium
+    env:
+      BUILD_ID: ${{ after.ios_repack.outputs.build_id || after.ios_build.outputs.build_id }}
+      FLOW: offline
+      APPLICATION_ID: dev.expo.summitsupply
+      IOS_SIM_DEVICE: iPhone 17
+    steps:
+      - uses: eas/checkout
+      - uses: eas/install_node_modules
+      - run: npm install -g @swmansion/argent @anthropic-ai/claude-code
+      - uses: eas/download_build
+        id: download_build
+        with:
+          build_id: ${{ env.BUILD_ID }}
+          extensions: [app]
+      - id: run_agent_qa
+        run: bash ./scripts/agent-qa/run-flow.sh "${{ steps.download_build.outputs.artifact_path }}"
