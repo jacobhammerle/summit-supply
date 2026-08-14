@@ -156,6 +156,9 @@ form (tap field, type, tap next field, type, tap submit) in a single call \
 instead of one call per action. \
 (3) Read the screen once per screen: one describe after each navigation or \
 submit is enough - do not re-describe after every keystroke. \
+(4) To flip a toggle, tap the switch control at the TRAILING (right) edge of \
+the toggle's frame (x around frame.x + frame.width - 0.06), not the row \
+centre - iOS only hit-tests the switch itself. \
 End your final message with exactly 'VERDICT: PASS' or 'VERDICT: FAIL' and a \
 one-sentence reason."
 

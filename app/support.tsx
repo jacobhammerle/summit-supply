@@ -2,21 +2,24 @@ import {
   Button,
   Form,
   Host,
-  Picker,
+  HStack,
+  Image,
+  Menu,
   Section,
+  Spacer,
   Text,
   TextField,
   useNativeState,
 } from "@expo/ui/swift-ui";
 import {
   buttonStyle,
+  contentShape,
+  shapes,
   frame,
   controlSize,
   fixedSize,
   foregroundStyle,
   lineLimit,
-  pickerStyle,
-  tag,
   tint,
 } from "@expo/ui/swift-ui/modifiers";
 import { useRef, useState } from "react";
@@ -68,18 +71,30 @@ export default function Support() {
           <TextField placeholder="Subject" text={subject} />
         </Section>
         <Section header={<Text>Category</Text>}>
-          <Picker
-            modifiers={[pickerStyle("menu")]}
-            label="Category"
-            selection={category}
-            onSelectionChange={(v) => setCategory(v as string)}
+          {/* A Menu with a custom full-width label instead of a menu-style
+              Picker: the Picker's tap target is only its trailing value text,
+              so a tap at its row centre does nothing. The Menu's whole label
+              (with contentShape) opens it, which agents and thumbs both hit. */}
+          <Menu
+            label={
+              <HStack modifiers={[contentShape(shapes.rectangle())]}>
+                <Text modifiers={[foregroundStyle({ type: "color", color: "primary" })]}>
+                  Category
+                </Text>
+                <Spacer />
+                <HStack spacing={4}>
+                  <Text modifiers={[foregroundStyle({ type: "hierarchical", style: "secondary" })]}>
+                    {category}
+                  </Text>
+                  <Image systemName="chevron.up.chevron.down" size={11} color="secondary" />
+                </HStack>
+              </HStack>
+            }
           >
             {CATEGORIES.map((c) => (
-              <Text key={c} modifiers={[tag(c)]}>
-                {c}
-              </Text>
+              <Button key={c} label={c} onPress={() => setCategory(c)} />
             ))}
-          </Picker>
+          </Menu>
         </Section>
         <Section header={<Text>What happened?</Text>}>
           <TextField
