@@ -9,9 +9,11 @@
 # Usage: run-flow.sh <path-to-.app>
 #
 # Required env:
-#   FLOW                     - signup | checkout | settings | support | offline
-#   APPLICATION_ID           - iOS bundle identifier
-#   CLAUDE_CODE_OAUTH_TOKEN  - from EAS environment variables (preview)
+#   FLOW                      - signup | checkout | settings | support | offline
+#   APPLICATION_ID            - iOS bundle identifier
+#   CLAUDE_CODE_OAUTH_TOKEN   - agent auth, EAS env var (preview, secret)
+#   EAS_SIMULATOR_EXPO_TOKEN  - robot access token that may create simulator
+#                               sessions, EAS env var (preview, secret)
 set -euo pipefail
 
 APP_PATH="${1:?Usage: run-flow.sh <path-to-.app>}"

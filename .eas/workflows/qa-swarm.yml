@@ -31,8 +31,10 @@
 # stopped. A robot access token (EAS_SIMULATOR_EXPO_TOKEN) is required to
 # create sessions - the auto-injected job-scoped EXPO_TOKEN cannot.
 #
-# Requires: CLAUDE_CODE_OAUTH_TOKEN set as an EAS environment variable in
-# the "preview" environment (visibility: secret).
+# Requires two EAS environment variables in "preview" (visibility: secret):
+#   CLAUDE_CODE_OAUTH_TOKEN   - auth for the headless Claude Code agent
+#   EAS_SIMULATOR_EXPO_TOKEN  - robot access token that may create
+#                               simulator sessions
 
 name: qa-swarm
 
