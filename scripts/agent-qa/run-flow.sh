@@ -51,23 +51,34 @@ fi
 
 START_OUT="$(mktemp)"
 echo "==> Starting EAS Simulator session for flow: ${FLOW}"
-npx --yes eas-cli@latest simulator:start \
+# Bound the wait: simulator:start blocks until the session is ready with no
+# timeout of its own. If provisioning stalls (macOS pool contention), fail in
+# 5 minutes with a clear message instead of hanging until the workflow's
+# timeout. GNU timeout exists on the linux-* images.
+timeout 300 npx --yes eas-cli@latest simulator:start \
   --platform ios \
   --type argent \
   --name "QA swarm: ${FLOW}" \
   --out-config-type env \
-  --non-interactive 2>&1 | tee "${START_OUT}"
-
-SESSION_ID="$(grep -oE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' "${START_OUT}" | head -1 || true)"
-: "${SESSION_ID:?could not parse the simulator session id from simulator:start output}"
+  --non-interactive 2>&1 | tee "${START_OUT}" || START_FAILED=1
 
 # A session bills until it is stopped, so stop it on every exit path -
-# success, agent failure, or an error under `set -e`.
+# success, agent failure, an error under `set -e`, or a start timeout that
+# fired after the session was already created.
+SESSION_ID="$(grep -oE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' "${START_OUT}" | head -1 || true)"
 cleanup() {
-  echo "==> Stopping EAS Simulator session ${SESSION_ID}"
-  npx --yes eas-cli@latest simulator:stop --id "${SESSION_ID}" --non-interactive || true
+  if [ -n "${SESSION_ID}" ]; then
+    echo "==> Stopping EAS Simulator session ${SESSION_ID}"
+    npx --yes eas-cli@latest simulator:stop --id "${SESSION_ID}" --non-interactive || true
+  fi
 }
 trap cleanup EXIT
+
+if [ -n "${START_FAILED:-}" ]; then
+  echo "==> ERROR: simulator session was not ready within 5 minutes."
+  exit 1
+fi
+: "${SESSION_ID:?could not parse the simulator session id from simulator:start output}"
 
 # Point the Argent client (and the agent's MCP server) at this session.
 ARGENT_TOOLS_URL="$(sed -n "s/^export ARGENT_TOOLS_URL='\(.*\)'$/\1/p" "${START_OUT}" | head -1)"

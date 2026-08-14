@@ -20,9 +20,16 @@
 # worker itself - the five sessions appear on the project's
 # "Simulator sessions" page while the swarm runs.
 #
+# The qa_* jobs run on linux-medium ON PURPOSE. A simulator session needs a
+# macOS VM on EAS's side; when the five QA jobs also held macos-medium
+# workers, the account was asking for ten macOS VMs at once and the sessions
+# deadlocked in "Waiting for argent session to be ready". On Linux the jobs
+# need nothing from macOS (argent is an HTTP client here, claude is Node),
+# and the whole macOS pool is free for the five simulator sessions.
+#
 # run-flow.sh stops its session on every exit path; a session bills until
-# stopped. eas-cli is already authenticated on the worker via an
-# auto-injected EXPO_TOKEN, so no extra credential is needed for it.
+# stopped. A robot access token (EAS_SIMULATOR_EXPO_TOKEN) is required to
+# create sessions - the auto-injected job-scoped EXPO_TOKEN cannot.
 #
 # Requires: CLAUDE_CODE_OAUTH_TOKEN set as an EAS environment variable in
 # the "preview" environment (visibility: secret).
@@ -75,7 +82,7 @@ jobs:
     after: [ios_repack, ios_build]
     if: ${{ after.ios_repack.status == 'success' || after.ios_build.status == 'success' }}
     environment: preview
-    runs_on: macos-medium
+    runs_on: linux-medium
     env:
       BUILD_ID: ${{ after.ios_repack.outputs.build_id || after.ios_build.outputs.build_id }}
       FLOW: signup
@@ -98,7 +105,7 @@ jobs:
     after: [ios_repack, ios_build]
     if: ${{ after.ios_repack.status == 'success' || after.ios_build.status == 'success' }}
     environment: preview
-    runs_on: macos-medium
+    runs_on: linux-medium
     env:
       BUILD_ID: ${{ after.ios_repack.outputs.build_id || after.ios_build.outputs.build_id }}
       FLOW: checkout
@@ -121,7 +128,7 @@ jobs:
     after: [ios_repack, ios_build]
     if: ${{ after.ios_repack.status == 'success' || after.ios_build.status == 'success' }}
     environment: preview
-    runs_on: macos-medium
+    runs_on: linux-medium
     env:
       BUILD_ID: ${{ after.ios_repack.outputs.build_id || after.ios_build.outputs.build_id }}
       FLOW: settings
@@ -144,7 +151,7 @@ jobs:
     after: [ios_repack, ios_build]
     if: ${{ after.ios_repack.status == 'success' || after.ios_build.status == 'success' }}
     environment: preview
-    runs_on: macos-medium
+    runs_on: linux-medium
     env:
       BUILD_ID: ${{ after.ios_repack.outputs.build_id || after.ios_build.outputs.build_id }}
       FLOW: support
@@ -167,7 +174,7 @@ jobs:
     after: [ios_repack, ios_build]
     if: ${{ after.ios_repack.status == 'success' || after.ios_build.status == 'success' }}
     environment: preview
-    runs_on: macos-medium
+    runs_on: linux-medium
     env:
       BUILD_ID: ${{ after.ios_repack.outputs.build_id || after.ios_build.outputs.build_id }}
       FLOW: offline
