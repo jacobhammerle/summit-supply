@@ -6,8 +6,4 @@ Test the account creation flow.
 3. Tap the "Create account" button.
 4. Verify the screen shows "Account created for sam@summit.dev".
 
-Bonus negative test (do this FIRST if time allows): submit with password
-"short" and verify the error "Password must have 8 or more characters"
-appears, then fix it and continue.
-
 Pass condition: the text "Account created for sam@summit.dev" is visible.

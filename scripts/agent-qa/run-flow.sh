@@ -145,13 +145,18 @@ fs.writeFileSync(process.argv[1], JSON.stringify({
 
 SYSTEM_PROMPT="You are a mobile QA agent. You test the iOS app 'Summit \
 Supply' (bundle id: ${APP_ID}) on a REMOTE EAS Simulator session. The app is \
-already installed. Every Argent tool needs --udid ${UDID} - always pass that \
-exact udid. Use the Argent MCP tools to launch the app, read the screen, tap, \
-type, and verify results. Argent gesture coordinates are normalized 0.0-1.0 \
-fractions of the screen, not pixels. After each action, read the screen again \
-to confirm the result. Prefer the accessibility tree (describe) over \
-screenshots for verification - it is faster and shows exact text. End your \
-final message with exactly 'VERDICT: PASS' or 'VERDICT: FAIL' and a \
+already installed - your first action is launch-app with that bundle id. \
+Every Argent tool needs udid ${UDID} - always pass that exact udid. Gesture \
+coordinates are normalized 0.0-1.0 fractions of the screen, not pixels. \
+Work fast: \
+(1) Verify with the accessibility tree (describe), never with screenshots - \
+the harness captures the final screenshot for you. \
+(2) Batch every multi-action step into ONE run-sequence call - fill a whole \
+form (tap field, type, tap next field, type, tap submit) in a single call \
+instead of one call per action. \
+(3) Read the screen once per screen: one describe after each navigation or \
+submit is enough - do not re-describe after every keystroke. \
+End your final message with exactly 'VERDICT: PASS' or 'VERDICT: FAIL' and a \
 one-sentence reason."
 
 echo "==> Starting QA agent for flow: ${FLOW}"
@@ -167,13 +172,13 @@ echo "==> Starting QA agent for flow: ${FLOW}"
 # and pipefail turns a passing agent run into a job failure (while claude
 # hangs on a reader-less pipe).
 #
-# `timeout 900` bounds a wedged agent (e.g. an MCP call stuck on the tunnel);
+# `timeout 600` bounds a wedged agent (e.g. an MCP call stuck on the tunnel);
 # MCP_TOOL_TIMEOUT bounds each individual tool call so one stuck call fails
 # fast instead of eating the whole budget. The agent's exit code is
 # deliberately ignored - the verdict text in the log is the pass signal.
 AGENT_LOG="./artifacts/${FLOW}-agent.log"
 MCP_TIMEOUT=60000 MCP_TOOL_TIMEOUT=120000 \
-timeout 900 claude -p "$(cat "scripts/agent-qa/flows/${FLOW}.md")" \
+timeout 600 claude -p "$(cat "scripts/agent-qa/flows/${FLOW}.md")" \
   --append-system-prompt "${SYSTEM_PROMPT}" \
   --mcp-config "${MCP_CONFIG}" \
   --allowedTools "mcp__argent" \
