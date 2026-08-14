@@ -91,7 +91,7 @@ jobs:
     steps:
       - uses: eas/checkout
       - uses: eas/install_node_modules
-      - run: npm install -g @swmansion/argent @anthropic-ai/claude-code
+      - run: npm install -g @swmansion/argent @anthropic-ai/claude-code eas-cli@21.8.0
       - uses: eas/download_build
         id: download_build
         with:
@@ -121,7 +121,7 @@ jobs:
     steps:
       - uses: eas/checkout
       - uses: eas/install_node_modules
-      - run: npm install -g @swmansion/argent @anthropic-ai/claude-code
+      - run: npm install -g @swmansion/argent @anthropic-ai/claude-code eas-cli@21.8.0
       - uses: eas/download_build
         id: download_build
         with:
@@ -151,7 +151,7 @@ jobs:
     steps:
       - uses: eas/checkout
       - uses: eas/install_node_modules
-      - run: npm install -g @swmansion/argent @anthropic-ai/claude-code
+      - run: npm install -g @swmansion/argent @anthropic-ai/claude-code eas-cli@21.8.0
       - uses: eas/download_build
         id: download_build
         with:
@@ -181,7 +181,7 @@ jobs:
     steps:
       - uses: eas/checkout
       - uses: eas/install_node_modules
-      - run: npm install -g @swmansion/argent @anthropic-ai/claude-code
+      - run: npm install -g @swmansion/argent @anthropic-ai/claude-code eas-cli@21.8.0
       - uses: eas/download_build
         id: download_build
         with:
@@ -211,7 +211,7 @@ jobs:
     steps:
       - uses: eas/checkout
       - uses: eas/install_node_modules
-      - run: npm install -g @swmansion/argent @anthropic-ai/claude-code
+      - run: npm install -g @swmansion/argent @anthropic-ai/claude-code eas-cli@21.8.0
       - uses: eas/download_build
         id: download_build
         with:

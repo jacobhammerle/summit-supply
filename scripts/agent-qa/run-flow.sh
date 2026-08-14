@@ -52,10 +52,10 @@ fi
 START_OUT="$(mktemp)"
 echo "==> Starting EAS Simulator session for flow: ${FLOW}"
 # Bound the wait: simulator:start blocks until the session is ready with no
-# timeout of its own. If provisioning stalls (macOS pool contention), fail in
-# 5 minutes with a clear message instead of hanging until the workflow's
-# timeout. GNU timeout exists on the linux-* images.
-timeout 300 npx --yes eas-cli@latest simulator:start \
+# timeout of its own. Provisioning under five-way demand has been observed to
+# take up to ~4 min, so allow 8 before declaring it stalled - still far short
+# of the workflow timeout. GNU timeout exists on the linux-* images.
+timeout 480 eas simulator:start \
   --platform ios \
   --type argent \
   --name "QA swarm: ${FLOW}" \
@@ -69,13 +69,13 @@ SESSION_ID="$(grep -oE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]
 cleanup() {
   if [ -n "${SESSION_ID}" ]; then
     echo "==> Stopping EAS Simulator session ${SESSION_ID}"
-    npx --yes eas-cli@latest simulator:stop --id "${SESSION_ID}" --non-interactive || true
+    eas simulator:stop --id "${SESSION_ID}" --non-interactive || true
   fi
 }
 trap cleanup EXIT
 
 if [ -n "${START_FAILED:-}" ]; then
-  echo "==> ERROR: simulator session was not ready within 5 minutes."
+  echo "==> ERROR: simulator session was not ready within 8 minutes."
   exit 1
 fi
 : "${SESSION_ID:?could not parse the simulator session id from simulator:start output}"
