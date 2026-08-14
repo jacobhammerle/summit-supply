@@ -12,13 +12,20 @@
 #                                                        ├─→ qa_support
 #                                                        └─→ qa_offline
 #
-# Each qa_* job runs on its own macOS worker with its own iOS Simulator.
-# Each job runs a headless Claude Code agent with Argent (Software
-# Mansion) as its MCP server. Argent gives the agent control of the app:
-# launch, tap, type, screenshots, accessibility tree.
+# Each qa_* job starts its OWN remote EAS Simulator session
+# (`eas simulator:start --platform ios --type argent`), installs the build
+# on it, and runs a headless Claude Code agent whose Argent MCP server is
+# bound to that session. Argent gives the agent control of the app: launch,
+# tap, type, screenshots, accessibility tree. No simulator runs on the
+# worker itself - the five sessions appear on the project's
+# "Simulator sessions" page while the swarm runs.
 #
-# Requires: ANTHROPIC_API_KEY set as an EAS environment variable in the
-# "preview" environment.
+# run-flow.sh stops its session on every exit path; a session bills until
+# stopped. eas-cli is already authenticated on the worker via an
+# auto-injected EXPO_TOKEN, so no extra credential is needed for it.
+#
+# Requires: CLAUDE_CODE_OAUTH_TOKEN set as an EAS environment variable in
+# the "preview" environment (visibility: secret).
 
 name: qa-swarm
 

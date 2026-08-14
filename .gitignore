@@ -10,3 +10,5 @@ artifacts/
 
 expo-env.d.ts
 # @end expo-cli
+# Carries a live session token — never commit.
+.env.eas-simulator
