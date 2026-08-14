@@ -3,11 +3,19 @@ import {
   Form,
   Host,
   HStack,
+  Image,
   Section,
   Spacer,
   Text,
 } from "@expo/ui/swift-ui";
-import { foregroundStyle } from "@expo/ui/swift-ui/modifiers";
+import {
+  buttonStyle,
+  frame,
+  controlSize,
+  font,
+  foregroundStyle,
+  tint,
+} from "@expo/ui/swift-ui/modifiers";
 import { useRouter } from "expo-router";
 import { getProduct } from "@/lib/products";
 import { useStore } from "@/lib/store";
@@ -28,7 +36,12 @@ export default function Cart() {
       <Host style={{ flex: 1 }}>
         <Form>
           <Section>
-            <Text>Your cart is empty. Add an item from the shop.</Text>
+            <HStack spacing={8}>
+              <Image systemName="cart" size={17} color="secondary" />
+              <Text modifiers={[foregroundStyle({ type: "hierarchical", style: "secondary" })]}>
+                Your cart is empty. Add an item from the shop.
+              </Text>
+            </HStack>
           </Section>
         </Form>
       </Host>
@@ -38,26 +51,35 @@ export default function Cart() {
   return (
     <Host style={{ flex: 1 }}>
       <Form>
-        <Section header={<Text>Items</Text>}>
+        <Section
+          header={<Text>Items</Text>}
+          footer={<Text>Free shipping on orders over $75.</Text>}
+        >
           {rows.map((r) => (
             <HStack key={r.product.id}>
-              <Text>
+              <Text modifiers={[font({ size: 16 })]}>
                 {r.product.emoji} {r.product.name} × {r.item.qty}
               </Text>
               <Spacer />
-              <Text>${r.product.price * r.item.qty}</Text>
+              <Text modifiers={[foregroundStyle({ type: "hierarchical", style: "secondary" })]}>
+                ${r.product.price * r.item.qty}
+              </Text>
             </HStack>
           ))}
           <HStack>
-            <Text>Total</Text>
+            <Text modifiers={[font({ size: 16, weight: "semibold" })]}>Total</Text>
             <Spacer />
-            <Text modifiers={[foregroundStyle({ type: "color", color: "#14382B" })]}>
+            <Text modifiers={[font({ size: 17, weight: "bold" }), foregroundStyle({ type: "color", color: "#14382B" })]}>
               Total ${total}
             </Text>
           </HStack>
         </Section>
         <Section>
-          <Button label="Check out" onPress={() => router.push("/checkout")} />
+          <Button
+            label="Check out"
+            onPress={() => router.push("/checkout")}
+            modifiers={[buttonStyle("borderedProminent"), tint("#14382B"), controlSize("large"), frame({ maxWidth: 9999 })]}
+          />
         </Section>
       </Form>
     </Host>

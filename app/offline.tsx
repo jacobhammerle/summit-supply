@@ -3,12 +3,20 @@ import {
   Form,
   Host,
   HStack,
+  Image,
   Section,
   Spacer,
   Text,
   Toggle,
 } from "@expo/ui/swift-ui";
-import { font, foregroundStyle } from "@expo/ui/swift-ui/modifiers";
+import {
+  buttonStyle,
+  frame,
+  controlSize,
+  font,
+  foregroundStyle,
+  tint,
+} from "@expo/ui/swift-ui/modifiers";
 import { useEffect } from "react";
 import { useStore } from "@/lib/store";
 
@@ -46,24 +54,37 @@ export default function OfflineSync() {
             label="Simulate offline"
             isOn={!online}
             onIsOnChange={(v) => setOnline(!v)}
+            modifiers={[tint("#B77D12")]}
           />
         </Section>
         <Section>
-          <Button label="Add trail log" onPress={addLog} />
+          <Button
+            label="Add trail log"
+            onPress={addLog}
+            modifiers={[buttonStyle("borderedProminent"), tint("#14382B"), controlSize("large"), frame({ maxWidth: 9999 })]}
+          />
         </Section>
         <Section header={<Text>Trail logs ({logs.length})</Text>}>
           {logs.length === 0 && (
-            <Text modifiers={[foregroundStyle({ type: "hierarchical", style: "secondary" })]}>
-              No logs yet.
-            </Text>
+            <HStack spacing={8}>
+              <Image systemName="figure.hiking" size={16} color="secondary" />
+              <Text modifiers={[foregroundStyle({ type: "hierarchical", style: "secondary" })]}>
+                No logs yet.
+              </Text>
+            </HStack>
           )}
           {logs.map((l) => (
-            <HStack key={l.id}>
-              <Text>{l.title}</Text>
+            <HStack key={l.id} spacing={8}>
+              <Image
+                systemName={l.status === "synced" ? "checkmark.icloud.fill" : "icloud.slash"}
+                size={15}
+                color={l.status === "synced" ? "#34C759" : "#B77D12"}
+              />
+              <Text modifiers={[font({ size: 16 })]}>{l.title}</Text>
               <Spacer />
               <Text
                 modifiers={[
-                  font({ size: 14 }),
+                  font({ size: 13, weight: "medium" }),
                   foregroundStyle({
                     type: "color",
                     color: l.status === "synced" ? "#34C759" : "#B77D12",
@@ -77,10 +98,13 @@ export default function OfflineSync() {
         </Section>
         {online && logs.length > 0 && pending === 0 && (
           <Section>
-            <Text modifiers={[foregroundStyle({ type: "color", color: "#34C759" })]}>
-              {synced} of {logs.length} logs synced
-            </Text>
-            <Text modifiers={[font({ size: 13 }), foregroundStyle({ type: "hierarchical", style: "secondary" })]}>
+            <HStack spacing={8}>
+              <Image systemName="checkmark.circle.fill" size={17} color="#34C759" />
+              <Text modifiers={[font({ size: 16, weight: "semibold" }), foregroundStyle({ type: "color", color: "#34C759" })]}>
+                {synced} of {logs.length} logs synced
+              </Text>
+            </HStack>
+            <Text modifiers={[font({ size: 12 }), foregroundStyle({ type: "hierarchical", style: "tertiary" })]}>
               FLOW 5 COMPLETE
             </Text>
           </Section>

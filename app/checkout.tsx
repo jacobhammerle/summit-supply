@@ -9,8 +9,13 @@ import {
 } from "@expo/ui/swift-ui";
 import {
   autocorrectionDisabled,
+  buttonStyle,
+  frame,
+  controlSize,
   foregroundStyle,
   keyboardType,
+  textContentType,
+  tint,
 } from "@expo/ui/swift-ui/modifiers";
 import { useRouter } from "expo-router";
 import { useState } from "react";
@@ -46,16 +51,20 @@ export default function Checkout() {
           header={<Text>Payment</Text>}
           footer={<Text>Demo checkout. Use test card 4242 4242 4242 4242.</Text>}
         >
-          <TextField placeholder="Name on card" text={name} modifiers={[autocorrectionDisabled()]} />
+          <TextField
+            placeholder="Name on card"
+            text={name}
+            modifiers={[autocorrectionDisabled(), textContentType("creditCardName")]}
+          />
           <TextField
             placeholder="Card number"
             text={card}
-            modifiers={[keyboardType("numeric")]}
+            modifiers={[keyboardType("numeric"), textContentType("creditCardNumber")]}
           />
           <TextField
             placeholder="ZIP code"
             text={zip}
-            modifiers={[keyboardType("numeric")]}
+            modifiers={[keyboardType("numeric"), textContentType("postalCode")]}
           />
         </Section>
         {errors.length > 0 && (
@@ -68,7 +77,11 @@ export default function Checkout() {
           </Section>
         )}
         <Section>
-          <Button label="Place order" onPress={submit} />
+          <Button
+            label="Place order"
+            onPress={submit}
+            modifiers={[buttonStyle("borderedProminent"), tint("#14382B"), controlSize("large"), frame({ maxWidth: 9999 })]}
+          />
         </Section>
       </Form>
     </Host>

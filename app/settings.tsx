@@ -2,16 +2,22 @@ import {
   Button,
   Form,
   Host,
+  HStack,
+  Image,
   Picker,
   Section,
   Text,
   Toggle,
 } from "@expo/ui/swift-ui";
 import {
+  buttonStyle,
+  frame,
+  controlSize,
   font,
   foregroundStyle,
   pickerStyle,
   tag,
+  tint,
 } from "@expo/ui/swift-ui/modifiers";
 import { useState } from "react";
 import { useStore } from "@/lib/store";
@@ -46,7 +52,10 @@ export default function Settings() {
   return (
     <Host style={{ flex: 1 }}>
       <Form>
-        <Section header={<Text>Units</Text>}>
+        <Section
+          header={<Text>Units</Text>}
+          footer={<Text>Applies to distances, weights, and temperatures.</Text>}
+        >
           <Picker
             modifiers={[pickerStyle("segmented")]}
             label="Units"
@@ -63,7 +72,10 @@ export default function Settings() {
             ))}
           </Picker>
         </Section>
-        <Section header={<Text>Alerts</Text>}>
+        <Section
+          header={<Text>Alerts</Text>}
+          footer={<Text>Trip reminders fire 24 hours before a planned hike.</Text>}
+        >
           <Toggle
             label="Notifications"
             isOn={notifications}
@@ -71,6 +83,7 @@ export default function Settings() {
               setNotifications(v);
               setSaved(false);
             }}
+            modifiers={[tint("#2E7D4F")]}
           />
           <Toggle
             label="Trip reminders"
@@ -79,18 +92,26 @@ export default function Settings() {
               setReminders(v);
               setSaved(false);
             }}
+            modifiers={[tint("#2E7D4F")]}
           />
         </Section>
         <Section>
-          <Button label="Save changes" onPress={save} />
+          <Button
+            label="Save changes"
+            onPress={save}
+            modifiers={[buttonStyle("borderedProminent"), tint("#14382B"), controlSize("large"), frame({ maxWidth: 9999 })]}
+          />
         </Section>
         {saved && (
           <Section>
-            <Text modifiers={[foregroundStyle({ type: "color", color: "#34C759" })]}>
-              Settings saved
-            </Text>
+            <HStack spacing={8}>
+              <Image systemName="checkmark.circle.fill" size={17} color="#34C759" />
+              <Text modifiers={[font({ size: 16, weight: "semibold" }), foregroundStyle({ type: "color", color: "#34C759" })]}>
+                Settings saved
+              </Text>
+            </HStack>
             <Text modifiers={[font({ size: 14 })]}>{summary}</Text>
-            <Text modifiers={[font({ size: 13 }), foregroundStyle({ type: "hierarchical", style: "secondary" })]}>
+            <Text modifiers={[font({ size: 12 }), foregroundStyle({ type: "hierarchical", style: "tertiary" })]}>
               FLOW 3 COMPLETE
             </Text>
           </Section>

@@ -2,23 +2,25 @@ import {
   Button,
   Form,
   Host,
-  Image,
   Section,
   SecureField,
   Text,
   TextField,
   useNativeState,
-  VStack,
 } from "@expo/ui/swift-ui";
 import {
   autocorrectionDisabled,
-  font,
+  buttonStyle,
+  frame,
+  controlSize,
   foregroundStyle,
   keyboardType,
-  padding,
+  textContentType,
   textInputAutocapitalization,
+  tint,
 } from "@expo/ui/swift-ui/modifiers";
 import { useState } from "react";
+import { SuccessScreen } from "@/lib/success";
 
 // Flow 1: Create account.
 // Success state text: "Account created for {email}".
@@ -43,26 +45,28 @@ export default function SignUp() {
 
   if (createdFor) {
     return (
-      <Host style={{ flex: 1 }}>
-        <VStack spacing={16} modifiers={[padding({ all: 24 })]}>
-          <Image systemName="checkmark.circle.fill" size={64} color="#34C759" />
-          <Text modifiers={[font({ size: 28, weight: "bold" })]}>Welcome, {name.get().split(" ")[0]}</Text>
-          <Text modifiers={[foregroundStyle({ type: "color", color: "#34C759" })]}>
-            Account created for {createdFor}
-          </Text>
-          <Text modifiers={[font({ size: 13 }), foregroundStyle({ type: "hierarchical", style: "secondary" })]}>
-            FLOW 1 COMPLETE
-          </Text>
-        </VStack>
-      </Host>
+      <SuccessScreen
+        icon="person.crop.circle.badge.checkmark"
+        title={`Welcome, ${name.get().split(" ")[0]}`}
+        message={`Account created for ${createdFor}`}
+        detail="Your basecamp is ready."
+        flow={1}
+      />
     );
   }
 
   return (
     <Host style={{ flex: 1 }}>
       <Form>
-        <Section header={<Text>Your details</Text>}>
-          <TextField placeholder="Full name" text={name} />
+        <Section
+          header={<Text>Your details</Text>}
+          footer={<Text>Join Summit Supply to track orders and trail logs.</Text>}
+        >
+          <TextField
+            placeholder="Full name"
+            text={name}
+            modifiers={[textContentType("name")]}
+          />
           <TextField
             placeholder="Email"
             text={email}
@@ -70,6 +74,7 @@ export default function SignUp() {
               keyboardType("email-address"),
               autocorrectionDisabled(),
               textInputAutocapitalization("never"),
+              textContentType("emailAddress"),
             ]}
           />
         </Section>
@@ -93,7 +98,11 @@ export default function SignUp() {
           </Section>
         )}
         <Section>
-          <Button label="Create account" onPress={submit} />
+          <Button
+            label="Create account"
+            onPress={submit}
+            modifiers={[buttonStyle("borderedProminent"), tint("#14382B"), controlSize("large"), frame({ maxWidth: 9999 })]}
+          />
         </Section>
       </Form>
     </Host>

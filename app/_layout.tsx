@@ -11,7 +11,10 @@ export default function RootLayout() {
           headerTintColor: "#14382B",
         }}
       >
-        <Stack.Screen name="index" options={{ title: "Summit Supply" }} />
+        <Stack.Screen
+          name="index"
+          options={{ title: "Summit Supply", headerShown: false }}
+        />
         <Stack.Screen name="signup" options={{ title: "Create account" }} />
         <Stack.Screen name="shop/index" options={{ title: "Shop" }} />
         <Stack.Screen name="shop/[id]" options={{ title: "Product" }} />

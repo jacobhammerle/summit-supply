@@ -2,24 +2,25 @@ import {
   Button,
   Form,
   Host,
-  Image,
   Picker,
   Section,
   Text,
   TextField,
   useNativeState,
-  VStack,
 } from "@expo/ui/swift-ui";
 import {
+  buttonStyle,
+  frame,
+  controlSize,
   fixedSize,
-  font,
   foregroundStyle,
   lineLimit,
-  padding,
   pickerStyle,
   tag,
+  tint,
 } from "@expo/ui/swift-ui/modifiers";
 import { useRef, useState } from "react";
+import { SuccessScreen } from "@/lib/success";
 
 // Flow 4: file a support ticket.
 // Success state: "Ticket SS-7301 created" (IDs increment per session).
@@ -47,26 +48,23 @@ export default function Support() {
 
   if (ticketId) {
     return (
-      <Host style={{ flex: 1 }}>
-        <VStack spacing={16} modifiers={[padding({ all: 24 })]}>
-          <Image systemName="checkmark.circle.fill" size={64} color="#34C759" />
-          <Text modifiers={[font({ size: 28, weight: "bold" })]}>We got it</Text>
-          <Text modifiers={[foregroundStyle({ type: "color", color: "#34C759" })]}>
-            Ticket {ticketId} created
-          </Text>
-          <Text>Category: {category}</Text>
-          <Text modifiers={[font({ size: 13 }), foregroundStyle({ type: "hierarchical", style: "secondary" })]}>
-            FLOW 4 COMPLETE
-          </Text>
-        </VStack>
-      </Host>
+      <SuccessScreen
+        icon="envelope.badge.fill"
+        title="We got it"
+        message={`Ticket ${ticketId} created`}
+        detail={`Category: ${category}`}
+        flow={4}
+      />
     );
   }
 
   return (
     <Host style={{ flex: 1 }}>
       <Form>
-        <Section header={<Text>Ticket</Text>}>
+        <Section
+          header={<Text>Ticket</Text>}
+          footer={<Text>Our gear team replies within one business day.</Text>}
+        >
           <TextField placeholder="Subject" text={subject} />
         </Section>
         <Section header={<Text>Category</Text>}>
@@ -101,7 +99,11 @@ export default function Support() {
           </Section>
         )}
         <Section>
-          <Button label="Submit ticket" onPress={submit} />
+          <Button
+            label="Submit ticket"
+            onPress={submit}
+            modifiers={[buttonStyle("borderedProminent"), tint("#14382B"), controlSize("large"), frame({ maxWidth: 9999 })]}
+          />
         </Section>
       </Form>
     </Host>
