@@ -172,23 +172,69 @@ echo "==> Starting QA agent for flow: ${FLOW}"
 # plugins, or CLAUDE.md, so the run stays reproducible without it.
 # Switch back to `claude --bare` if you move to an ANTHROPIC_API_KEY.
 #
-# Output goes through `tee <file>`, NEVER `tee /dev/stderr`: on the Linux
-# workers stderr is a socket, opening it by path fails with ENXIO, tee dies,
-# and pipefail turns a passing agent run into a job failure (while claude
-# hangs on a reader-less pipe).
+# The agent emits stream-json so the job log narrates every turn live
+# (tool calls, results, rate-limit events) instead of going silent for the
+# whole run. Topology: claude | tee <raw log> | pretty-printer.
+#   - tee comes FIRST, so the raw stream (and the verdict) reaches the
+#     artifact log even if the pretty-printer misbehaves. Never tee to
+#     /dev/stderr: on the Linux workers stderr is a socket, opening it by
+#     path fails with ENXIO, and pipefail then fails a passing run.
+#   - the pretty-printer is fully try/catch-wrapped and falls back to
+#     echoing raw lines, so it cannot break the pipeline on odd input.
 #
-# `timeout 600` bounds a wedged agent (e.g. an MCP call stuck on the tunnel);
+# `timeout 900` bounds a wedged agent (a passing lane has been observed at
+# 8m14s under rate-limit backpressure, so 600 was too tight);
 # MCP_TOOL_TIMEOUT bounds each individual tool call so one stuck call fails
 # fast instead of eating the whole budget. The agent's exit code is
 # deliberately ignored - the verdict text in the log is the pass signal.
 AGENT_LOG="./artifacts/${FLOW}-agent.log"
+PRETTY="$(mktemp)"
+cat > "${PRETTY}" << 'JS'
+const rl = require("readline").createInterface({ input: process.stdin });
+const t0 = Date.now();
+const ts = () => "[" + String(Math.round((Date.now() - t0) / 1000)).padStart(3) + "s]";
+const clip = (s, n) => {
+  s = String(s).replace(/\s+/g, " ").trim();
+  return s.length > n ? s.slice(0, n) + "…" : s;
+};
+rl.on("line", (line) => {
+  let d;
+  try { d = JSON.parse(line); } catch { console.log(line); return; }
+  try {
+    if (d.type === "assistant") {
+      for (const b of d.message?.content ?? []) {
+        if (b.type === "text" && b.text?.trim()) console.log(ts(), "AGENT", b.text.trim());
+        if (b.type === "tool_use")
+          console.log(ts(), "TOOL ", (b.name ?? "").replace(/^mcp__argent__/, ""), clip(JSON.stringify(b.input ?? {}), 220));
+      }
+    } else if (d.type === "user") {
+      for (const b of d.message?.content ?? []) {
+        if (b.type === "tool_result") {
+          const c = Array.isArray(b.content)
+            ? b.content.map((x) => x?.text ?? "[" + (x?.type ?? "block") + "]").join(" ")
+            : String(b.content ?? "");
+          console.log(ts(), "   ->", clip(c, 200));
+        }
+      }
+    } else if (d.type === "rate_limit_event") {
+      const i = d.rate_limit_info ?? {};
+      if (i.status && i.status !== "allowed") console.log(ts(), "RATE-LIMIT", JSON.stringify(i));
+    } else if (d.type === "result") {
+      // Print the full result untruncated: the VERDICT line is at its end.
+      console.log(ts(), "RESULT", String(d.result ?? "").trim());
+      console.log(ts(), "turns=" + d.num_turns + " api_ms=" + d.duration_api_ms);
+    }
+  } catch { console.log(line); }
+});
+JS
 MCP_TIMEOUT=60000 MCP_TOOL_TIMEOUT=120000 \
-timeout 600 claude -p "$(cat "scripts/agent-qa/flows/${FLOW}.md")" \
+timeout 900 claude -p "$(cat "scripts/agent-qa/flows/${FLOW}.md")" \
   --append-system-prompt "${SYSTEM_PROMPT}" \
   --mcp-config "${MCP_CONFIG}" \
   --allowedTools "mcp__argent" \
   --permission-mode dontAsk \
-  --max-turns 60 </dev/null 2>&1 | tee "${AGENT_LOG}" || true
+  --output-format stream-json --verbose \
+  --max-turns 60 </dev/null 2>&1 | tee "${AGENT_LOG}" | node "${PRETTY}" || true
 
 # Final screenshot, captured deterministically by the script (the agent only
 # has argent tools, so it cannot write files into ./artifacts itself).

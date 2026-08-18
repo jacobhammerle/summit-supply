@@ -89,11 +89,12 @@ jobs:
       BUILD_ID: ${{ after.ios_repack.outputs.build_id || after.ios_build.outputs.build_id }}
       FLOW: signup
       APPLICATION_ID: dev.expo.summitsupply
+      EAS_NO_VERSION_CHECK: "1"
       IOS_SIM_DEVICE: iPhone 17
     steps:
       - uses: eas/checkout
       - uses: eas/install_node_modules
-      - run: npm install -g @swmansion/argent @anthropic-ai/claude-code eas-cli@21.8.0
+      - run: npm install -g --no-audit --no-fund --loglevel=error @swmansion/argent @anthropic-ai/claude-code eas-cli@21.8.0
       - uses: eas/download_build
         id: download_build
         with:
@@ -119,11 +120,12 @@ jobs:
       BUILD_ID: ${{ after.ios_repack.outputs.build_id || after.ios_build.outputs.build_id }}
       FLOW: checkout
       APPLICATION_ID: dev.expo.summitsupply
+      EAS_NO_VERSION_CHECK: "1"
       IOS_SIM_DEVICE: iPhone 17
     steps:
       - uses: eas/checkout
       - uses: eas/install_node_modules
-      - run: npm install -g @swmansion/argent @anthropic-ai/claude-code eas-cli@21.8.0
+      - run: npm install -g --no-audit --no-fund --loglevel=error @swmansion/argent @anthropic-ai/claude-code eas-cli@21.8.0
       - uses: eas/download_build
         id: download_build
         with:
@@ -149,11 +151,12 @@ jobs:
       BUILD_ID: ${{ after.ios_repack.outputs.build_id || after.ios_build.outputs.build_id }}
       FLOW: settings
       APPLICATION_ID: dev.expo.summitsupply
+      EAS_NO_VERSION_CHECK: "1"
       IOS_SIM_DEVICE: iPhone 17
     steps:
       - uses: eas/checkout
       - uses: eas/install_node_modules
-      - run: npm install -g @swmansion/argent @anthropic-ai/claude-code eas-cli@21.8.0
+      - run: npm install -g --no-audit --no-fund --loglevel=error @swmansion/argent @anthropic-ai/claude-code eas-cli@21.8.0
       - uses: eas/download_build
         id: download_build
         with:
@@ -179,11 +182,12 @@ jobs:
       BUILD_ID: ${{ after.ios_repack.outputs.build_id || after.ios_build.outputs.build_id }}
       FLOW: support
       APPLICATION_ID: dev.expo.summitsupply
+      EAS_NO_VERSION_CHECK: "1"
       IOS_SIM_DEVICE: iPhone 17
     steps:
       - uses: eas/checkout
       - uses: eas/install_node_modules
-      - run: npm install -g @swmansion/argent @anthropic-ai/claude-code eas-cli@21.8.0
+      - run: npm install -g --no-audit --no-fund --loglevel=error @swmansion/argent @anthropic-ai/claude-code eas-cli@21.8.0
       - uses: eas/download_build
         id: download_build
         with:
@@ -209,11 +213,12 @@ jobs:
       BUILD_ID: ${{ after.ios_repack.outputs.build_id || after.ios_build.outputs.build_id }}
       FLOW: offline
       APPLICATION_ID: dev.expo.summitsupply
+      EAS_NO_VERSION_CHECK: "1"
       IOS_SIM_DEVICE: iPhone 17
     steps:
       - uses: eas/checkout
       - uses: eas/install_node_modules
-      - run: npm install -g @swmansion/argent @anthropic-ai/claude-code eas-cli@21.8.0
+      - run: npm install -g --no-audit --no-fund --loglevel=error @swmansion/argent @anthropic-ai/claude-code eas-cli@21.8.0
       - uses: eas/download_build
         id: download_build
         with:
