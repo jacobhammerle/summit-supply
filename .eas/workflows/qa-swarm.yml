@@ -89,7 +89,6 @@ jobs:
       BUILD_ID: ${{ after.ios_repack.outputs.build_id || after.ios_build.outputs.build_id }}
       FLOW: signup
       APPLICATION_ID: dev.expo.summitsupply
-      EAS_NO_VERSION_CHECK: "1"
       IOS_SIM_DEVICE: iPhone 17
     steps:
       - uses: eas/checkout
@@ -120,7 +119,6 @@ jobs:
       BUILD_ID: ${{ after.ios_repack.outputs.build_id || after.ios_build.outputs.build_id }}
       FLOW: checkout
       APPLICATION_ID: dev.expo.summitsupply
-      EAS_NO_VERSION_CHECK: "1"
       IOS_SIM_DEVICE: iPhone 17
     steps:
       - uses: eas/checkout
@@ -151,7 +149,6 @@ jobs:
       BUILD_ID: ${{ after.ios_repack.outputs.build_id || after.ios_build.outputs.build_id }}
       FLOW: settings
       APPLICATION_ID: dev.expo.summitsupply
-      EAS_NO_VERSION_CHECK: "1"
       IOS_SIM_DEVICE: iPhone 17
     steps:
       - uses: eas/checkout
@@ -182,7 +179,6 @@ jobs:
       BUILD_ID: ${{ after.ios_repack.outputs.build_id || after.ios_build.outputs.build_id }}
       FLOW: support
       APPLICATION_ID: dev.expo.summitsupply
-      EAS_NO_VERSION_CHECK: "1"
       IOS_SIM_DEVICE: iPhone 17
     steps:
       - uses: eas/checkout
@@ -213,7 +209,6 @@ jobs:
       BUILD_ID: ${{ after.ios_repack.outputs.build_id || after.ios_build.outputs.build_id }}
       FLOW: offline
       APPLICATION_ID: dev.expo.summitsupply
-      EAS_NO_VERSION_CHECK: "1"
       IOS_SIM_DEVICE: iPhone 17
     steps:
       - uses: eas/checkout

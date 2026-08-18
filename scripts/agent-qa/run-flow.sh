@@ -71,7 +71,12 @@ SESSION_ID="$(grep -oE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]
 cleanup() {
   if [ -n "${SESSION_ID}" ]; then
     echo "==> Stopping EAS Simulator session ${SESSION_ID}"
-    eas simulator:stop --id "${SESSION_ID}" --non-interactive || true
+    # stderr silenced: eas-cli's "a newer version is available" nag prints
+    # there unconditionally (the plugin has no opt-out), and it fires exactly
+    # here - the first eas call of the job seeds the version cache that this
+    # later call then reads. Stop success/failure still prints on stdout,
+    # and failures are tolerated (|| true) either way.
+    eas simulator:stop --id "${SESSION_ID}" --non-interactive 2>/dev/null || true
   fi
 }
 trap cleanup EXIT
