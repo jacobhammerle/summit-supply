@@ -14,15 +14,24 @@
 #   CLAUDE_CODE_OAUTH_TOKEN   - agent auth, EAS env var (preview, secret)
 #   EAS_SIMULATOR_EXPO_TOKEN  - robot access token that may create simulator
 #                               sessions, EAS env var (preview, secret)
+#
+# Optional env:
+#   AGENT_MODEL               - model for the QA agent. Defaults to
+#                               claude-sonnet-5. Pinned rather than left to the
+#                               CLI default so a run is reproducible: the
+#                               default follows the authenticating account and
+#                               can change under us without a commit.
 set -euo pipefail
 
 APP_PATH="${1:?Usage: run-flow.sh <path-to-.app>}"
 : "${FLOW:?FLOW env is required}"
 APP_ID="${APPLICATION_ID:-dev.expo.summitsupply}"
 DEVICE_NAME="${IOS_SIM_DEVICE:-iPhone 17}"
+AGENT_MODEL="${AGENT_MODEL:-claude-sonnet-5}"
 
-echo "==> Flow: ${FLOW}"
-echo "==> App:  ${APP_PATH}"
+echo "==> Flow:  ${FLOW}"
+echo "==> App:   ${APP_PATH}"
+echo "==> Model: ${AGENT_MODEL}"
 
 mkdir -p ./artifacts
 
@@ -227,13 +236,30 @@ rl.on("line", (line) => {
     } else if (d.type === "result") {
       // Print the full result untruncated: the VERDICT line is at its end.
       console.log(ts(), "RESULT", String(d.result ?? "").trim());
-      console.log(ts(), "turns=" + d.num_turns + " api_ms=" + d.duration_api_ms);
+      // Speed/cost line. modelUsage is keyed by model id; the QA work is
+      // whichever key generated the most output tokens (Claude Code also bills
+      // a few tokens to a small auxiliary model for its own bookkeeping, and
+      // that must not be mistaken for the agent's model). Printing it here
+      // makes --model verifiable from the job log alone - no artifact download.
+      const mu = d.modelUsage ?? {};
+      const served = Object.entries(mu)
+        .sort((a, b) => (b[1]?.outputTokens ?? 0) - (a[1]?.outputTokens ?? 0))
+        .map(([id]) => id)[0] ?? "unknown";
+      console.log(
+        ts(),
+        "turns=" + d.num_turns,
+        "wall_ms=" + d.duration_ms,
+        "api_ms=" + d.duration_api_ms,
+        "cost_usd=" + (d.total_cost_usd ?? 0).toFixed(4),
+        "model=" + served,
+      );
     }
   } catch { console.log(line); }
 });
 JS
 MCP_TIMEOUT=60000 MCP_TOOL_TIMEOUT=120000 \
 timeout 900 claude -p "$(cat "scripts/agent-qa/flows/${FLOW}.md")" \
+  --model "${AGENT_MODEL}" \
   --append-system-prompt "${SYSTEM_PROMPT}" \
   --mcp-config "${MCP_CONFIG}" \
   --allowedTools "mcp__argent" \
