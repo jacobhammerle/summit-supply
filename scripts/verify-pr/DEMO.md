@@ -29,12 +29,14 @@ objectively checkable from the accessibility tree.
    - `EXPO_TOKEN` — the robot token (same value as `EAS_SIMULATOR_EXPO_TOKEN`).
    - `VERIFY_BOT_GH_TOKEN` — optional bot identity for ack comments.
 
-3. EAS secret + evidence repo:
+3. Make this repo **public** (Settings → General → Danger Zone → Change
+   visibility). Evidence screenshots upload to this repo's `evidence` branch
+   (auto-created) and only render in comments if the repo is public. Then
+   set the EAS secret:
 
    ```bash
    eas env:set --name VERIFY_GITHUB_TOKEN --value <token with repo scope> \
      --environment preview --visibility secret
-   gh repo create jacobhammerle/verify-evidence --public --add-readme
    ```
 
 4. **Rehearse once** (see timing below): file a throwaway issue, comment

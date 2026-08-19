@@ -59,8 +59,14 @@
 #   AGENT_MODEL               - default claude-fable-5
 #   REQUESTER                 - GitHub login to @mention in the report
 #   RUN_URL                   - this workflow run's dashboard URL
-#   EVIDENCE_REPO             - public repo for screenshots
-#                               (default jacobhammerle/verify-evidence)
+#   EVIDENCE_REPO             - PUBLIC repo for screenshots
+#                               (default jacobhammerle/summit-supply — this
+#                               repo, which must be public or the images
+#                               render broken in comments)
+#   EVIDENCE_BRANCH           - branch for the screenshots (default
+#                               "evidence", auto-created off the default
+#                               branch on first use; keeps evidence commits
+#                               out of main's history)
 #   IOS_SIM_DEVICE            - default iPhone 17
 set -euo pipefail
 
@@ -72,7 +78,8 @@ TARGET_URL="${TARGET_URL:-${PR_URL:-}}"
 AGENT_MODEL="${AGENT_MODEL:-claude-fable-5}"
 REQUESTER="${REQUESTER:-}"
 RUN_URL="${RUN_URL:-}"
-EVIDENCE_REPO="${EVIDENCE_REPO:-jacobhammerle/verify-evidence}"
+EVIDENCE_REPO="${EVIDENCE_REPO:-jacobhammerle/summit-supply}"
+EVIDENCE_BRANCH="${EVIDENCE_BRANCH:-evidence}"
 DEVICE_NAME="${IOS_SIM_DEVICE:-iPhone 17}"
 
 if [[ "${TARGET_URL}" =~ ^https://github\.com/([^/]+)/([^/]+)/(pull|issues)/([0-9]+) ]]; then
@@ -878,23 +885,40 @@ RID=""
 
 # Evidence upload failures must not lose the report: on any failure the
 # comment still posts, with a pointer at the run artifacts instead of images.
+# The evidence branch keeps these commits out of the default branch's
+# history; it is created off the default branch on first use.
 UPLOAD_FAILED=""
+if ! gh api "repos/${EVIDENCE_REPO}/git/ref/heads/${EVIDENCE_BRANCH}" >/dev/null 2>&1; then
+  echo "==> Creating evidence branch ${EVIDENCE_BRANCH} in ${EVIDENCE_REPO}"
+  ev_default="$(gh api "repos/${EVIDENCE_REPO}" --jq .default_branch 2>/dev/null || true)"
+  ev_sha="$(gh api "repos/${EVIDENCE_REPO}/commits/${ev_default}" --jq .sha 2>/dev/null || true)"
+  if [ -n "${ev_sha}" ]; then
+    gh api -X POST "repos/${EVIDENCE_REPO}/git/refs" \
+      -f ref="refs/heads/${EVIDENCE_BRANCH}" -f sha="${ev_sha}" >/dev/null 2>&1 || true
+  fi
+fi
+# Images in comments are fetched anonymously by GitHub's proxy, so a private
+# evidence repo means broken images for every viewer. Warn, don't fail.
+if [ "$(gh api "repos/${EVIDENCE_REPO}" --jq .private 2>/dev/null)" = "true" ]; then
+  echo "==> WARNING: ${EVIDENCE_REPO} is PRIVATE; evidence images will not render in comments."
+fi
 shopt -s nullglob
 for img in ./artifacts/evidence/*.png; do
   name="$(basename "${img}")"
-  echo "==> Uploading evidence ${name} to ${EVIDENCE_REPO}"
+  echo "==> Uploading evidence ${name} to ${EVIDENCE_REPO}@${EVIDENCE_BRANCH}"
   payload="$(mktemp)"
   node -e '
 const fs = require("fs");
-const [img, out, name, rid] = process.argv.slice(1);
+const [img, out, name, rid, branch] = process.argv.slice(1);
 fs.writeFileSync(out, JSON.stringify({
   message: "evidence " + rid + "/" + name,
+  branch: branch,
   content: fs.readFileSync(img).toString("base64"),
 }));
-' "${img}" "${payload}" "${name}" "${RID}"
+' "${img}" "${payload}" "${name}" "${RID}" "${EVIDENCE_BRANCH}"
   if gh api --method PUT "repos/${EVIDENCE_REPO}/contents/runs/${RID}/${name}" \
        --input "${payload}" --jq .content.path; then
-    raw_url="https://raw.githubusercontent.com/${EVIDENCE_REPO}/main/runs/${RID}/${name}"
+    raw_url="https://raw.githubusercontent.com/${EVIDENCE_REPO}/${EVIDENCE_BRANCH}/runs/${RID}/${name}"
     sed -i "s|(evidence/${name})|(${raw_url})|g" ./artifacts/report.md
   else
     echo "==> WARNING: upload failed for ${name}; the comment will reference the run artifacts"

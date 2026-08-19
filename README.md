@@ -244,11 +244,11 @@ eas env:set --name VERIFY_GITHUB_TOKEN --value <token> \
   --environment preview --visibility secret
 ```
 
-Public evidence host (images in comments need public URLs):
-
-```bash
-gh repo create jacobhammerle/verify-evidence --public --add-readme
-```
+Evidence host: screenshots upload to this repo's `evidence` branch
+(auto-created on first run) and embed as raw URLs. **This repo must be
+public** — GitHub's image proxy fetches comment images anonymously, so a
+private repo means broken images for every viewer. Override with
+`EVIDENCE_REPO` / `EVIDENCE_BRANCH` on the job if needed.
 
 The trigger workflow must be on the **default branch** before comments can
 fire it (GitHub rule for `issue_comment`).
