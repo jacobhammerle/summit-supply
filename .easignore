@@ -11,3 +11,7 @@ android/
 .expo/
 artifacts/
 *.log
+
+# Scratch dir left by local runs of scripts/verify-pr/run-verification.sh
+work/
+.bin/

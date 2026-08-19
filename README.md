@@ -163,3 +163,98 @@ lib/
   `tee <file>` instead — see the comment in `run-flow.sh`.
 - **Bare `argent` is not an MCP server.** It prints usage and exits 0. The
   MCP config must run `argent mcp`.
+
+## Verification bot (`/verify`, `@expo-bot verify`)
+
+Comment on a PR **or an issue** in this repo:
+
+```
+@expo-bot verify with fable     (or just /verify)
+```
+
+The bot reacts 👀, replies with a link to the EAS investigation run, and
+posts findings with screenshot evidence when it completes.
+
+- **On a PR** it builds the app at the PR **base** commit and at the **head**
+  commit, reproduces the issue on the base build on an EAS Simulator, then
+  verifies the fix on the head build.
+- **On an issue** it builds the app at the default branch, verifies the
+  reported bug, and — when it can author AND verify a fix — **opens a fix
+  PR** (clearly bannered as agent-authored, never auto-merged).
+- Model: `verify with <fable|opus|sonnet|haiku>`, `--model <claude-*>`, or a
+  `--fable`-style flag. Default is `claude-fable-5`.
+
+### Pieces
+
+```
+.github/workflows/verify-command.yml   Trigger: issue_comment. Write-access
+                                       gate, 👀 ack, starts the EAS run,
+                                       always-reports a failed start
+.eas/workflows/verify-pr.yml           One linux-medium job (inputs:
+                                       target_url, model, requester)
+scripts/verify-pr/run-verification.sh  The investigation pipeline (below)
+scripts/verify-pr/prompts/
+  plan-app.md      PR on an app repo: plan only (script builds base+head)
+  plan-issue.md    Issue: diagnose, plan, and optionally edit a fix copy
+  prepare.md       PR on a library repo: agent-built repro app (fallback)
+  investigate.md   Drive the simulator, capture evidence, draft the report
+  critic.md        Fresh-context adversarial review of the draft
+scripts/verify-pr/watch.sh             Cross-repo fallback poller (for repos
+                                       where the GHA workflow cannot live)
+```
+
+### The pipeline (hardening mirrors expo/expo's agent-commands.yml)
+
+1. **Canary** — a one-word write on the real model proves the credential and
+   the file-permission rules before any money is spent.
+2. **Context** — the script (not an agent) collects the PR/issue JSON, a
+   SHA-pinned diff, and linked issues into `work/context/`, each file
+   truncation-marked at the top. **No agent env ever holds the GitHub
+   token.**
+3. **Build** — the script runs the EAS builds. The planner/diagnose agent
+   reads reporter-authored text, so it has **no shell**; in issue mode it can
+   edit only `work/fix-src/`, `work/plan.md`, and `work/pr.md`.
+4. **Investigate** — an agent drives a remote EAS Simulator session,
+   reproduces on base, verifies on the fix/head build, captures named
+   screenshots, and drafts `artifacts/report.md`. It cannot post.
+5. **Critic** — a fresh-context reviewer (no MCP, no shell, no network) reads
+   the draft plus the rendered run log and writes MUST-FIX objections.
+6. **Revise** — the investigator's session is resumed with the review while
+   the simulator is still alive, so objections are settled by measuring.
+7. **Publish** — script only: stop the session, note if the PR head moved
+   mid-run, open the fix PR (issue mode, only on a `fix-verified` outcome,
+   through a path denylist that refuses config/automation files), upload
+   evidence to the public repo, post the comment. Failures post a "did not
+   complete" comment with salvaged partial notes in the artifacts.
+
+### One-time setup
+
+GitHub repo secrets (Settings → Secrets → Actions):
+
+```
+EXPO_TOKEN            robot token (may run EAS workflows on this project)
+VERIFY_BOT_GH_TOKEN   optional; bot identity for the ack + announce comments
+```
+
+EAS `preview` environment (next to the two QA-swarm secrets):
+
+```bash
+# Reads the PR, pushes fix branches, posts comments, writes evidence.
+eas env:set --name VERIFY_GITHUB_TOKEN --value <token> \
+  --environment preview --visibility secret
+```
+
+Public evidence host (images in comments need public URLs):
+
+```bash
+gh repo create jacobhammerle/verify-evidence --public --add-readme
+```
+
+The trigger workflow must be on the **default branch** before comments can
+fire it (GitHub rule for `issue_comment`).
+
+### Demo
+
+`scripts/verify-pr/DEMO.md` is the two-act runbook: file an issue about the
+planted settings bug (`demo/plant-settings-bug`), let the bot verify it and
+open a fix PR, then run `/verify` on that PR.

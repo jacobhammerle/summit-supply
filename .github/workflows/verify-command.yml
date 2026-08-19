@@ -1,0 +1,197 @@
+# Verification trigger. Comment "/verify" or "@expo-bot verify" on a PR or an
+# issue in THIS repo and this workflow acks the comment and starts the
+# verify-pr EAS workflow, which does the investigation and posts the findings.
+# On a PR it compares base (bug expected) with head (fix expected). On an
+# issue it verifies the reported bug and, when it can verify a fix, opens a
+# fix PR.
+#
+# Patterns borrowed from expo/expo's agent-commands.yml (see the memory of
+# that review), scaled to a single-project demo:
+# - Two-layer gate: the job `if:` filters to command-shaped comments from
+#   OWNER/MEMBER/COLLABORATOR associations; an authoritative step then checks
+#   write access via the collaborators API (association alone does not prove
+#   write on this repo).
+# - The comment body reaches shell only via env, never inline interpolation.
+# - Ack = eyes reaction + announce comment linking the EAS run (the demo
+#   visual), posted only after the run actually started.
+# - An always() reporter closes the loop if the run could not start, so the
+#   thread never keeps a dangling trigger with no response.
+#
+# Runs on the DEFAULT branch's copy of this file (GitHub rule for
+# issue_comment), so it must be merged to main before it can fire.
+#
+# Repo secrets required:
+#   EXPO_TOKEN            Expo robot token; must be allowed to run workflows
+#                         on the summit-supply project.
+#   VERIFY_BOT_GH_TOKEN   Optional. Token used for the reaction + comments so
+#                         they post as a bot identity. Falls back to the
+#                         workflow's own GITHUB_TOKEN (posts as
+#                         github-actions[bot]).
+name: Verify command
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: read
+
+jobs:
+  verify:
+    name: Start verification
+    # PRs AND plain issues both trigger. On an issue, the investigation also
+    # opens a fix PR when it can verify a fix. Commands must BEGIN the
+    # comment; result comments never re-trigger (the announce/report texts
+    # contain no command prefix).
+    if: >-
+      (github.event.comment.body == '/verify' ||
+      startsWith(github.event.comment.body, '/verify ') ||
+      github.event.comment.body == '@expo-bot verify' ||
+      startsWith(github.event.comment.body, '@expo-bot verify ')) &&
+      contains(fromJson('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)
+    runs-on: ubuntu-latest
+    # Serialize per PR; a duplicate command queues rather than cancels.
+    concurrency:
+      group: verify-command-${{ github.event.issue.number }}
+      cancel-in-progress: false
+    env:
+      PR_NUMBER: ${{ github.event.issue.number }}
+      # html_url is the PR URL when the comment sits on a PR, the issue URL
+      # otherwise — exactly the disambiguation the EAS job needs.
+      TARGET_URL: ${{ github.event.issue.html_url }}
+      REQUESTER: ${{ github.event.comment.user.login }}
+      BOT_TOKEN: ${{ secrets.VERIFY_BOT_GH_TOKEN || secrets.GITHUB_TOKEN }}
+    steps:
+      # author_association does not prove write access on this repo; ask the
+      # collaborators API. Fails quietly (log only): a drive-by comment from a
+      # non-writer should not get a public bot reply.
+      - name: Require write access
+        id: gate
+        env:
+          GH_TOKEN: ${{ env.BOT_TOKEN }}
+          ACTOR: ${{ github.event.comment.user.login }}
+          ASSOCIATION: ${{ github.event.comment.author_association }}
+        run: |
+          perm=$(gh api "repos/${{ github.repository }}/collaborators/$ACTOR/permission" --jq .permission || echo none)
+          # The permission API can be unreadable to the default workflow
+          # token. An OWNER is write-capable by definition, so that
+          # association passes even when the API cannot answer.
+          case "$perm" in
+            admin|maintain|write) echo "ok=true" >> "$GITHUB_OUTPUT" ;;
+            *)
+              if [ "$ASSOCIATION" = "OWNER" ]; then
+                echo "ok=true" >> "$GITHUB_OUTPUT"
+                echo "permission API said '$perm' but @$ACTOR is the repo OWNER; allowing."
+              else
+                echo "ok=false" >> "$GITHUB_OUTPUT"
+                echo "@$ACTOR has '$perm' permission; verify requires write. Doing nothing."
+              fi
+              ;;
+          esac
+
+      # The comment body is untrusted text; it reaches the shell only via env.
+      # Model comes from "verify with <alias>", "--model <id>", or a
+      # per-model shorthand flag. Aliases map to full ids; anything else is
+      # rejected loudly — a typo silently falling back would misreport which
+      # model produced the findings.
+      - name: Parse command
+        id: cmd
+        if: steps.gate.outputs.ok == 'true'
+        env:
+          COMMENT: ${{ github.event.comment.body }}
+        run: |
+          line=$(printf '%s' "$COMMENT" | head -n1 | tr -d '\r')
+          model=$(printf '%s\n' "$line" | sed -n 's/.*verify[[:space:]][[:space:]]*with[[:space:]][[:space:]]*\([A-Za-z0-9-]*\).*/\1/p')
+          m2=$(printf '%s\n' "$line" | sed -n 's/.*--model[= ][[:space:]]*\([A-Za-z0-9.-]*\).*/\1/p')
+          [ -n "$m2" ] && model=$m2
+          case " $line " in *" --fable "*)  model=fable ;; esac
+          case " $line " in *" --opus "*)   model=opus ;; esac
+          case " $line " in *" --sonnet "*) model=sonnet ;; esac
+          case " $line " in *" --haiku "*)  model=haiku ;; esac
+          case "$model" in
+            "")     model=claude-fable-5 ;;
+            fable)  model=claude-fable-5 ;;
+            opus)   model=claude-opus-5 ;;
+            sonnet) model=claude-sonnet-5 ;;
+            haiku)  model=claude-haiku-4-5-20251001 ;;
+            claude-*)
+              if [ -n "$(printf '%s' "$model" | tr -d 'A-Za-z0-9._-')" ]; then
+                echo "::error::Invalid model override: $model"
+                exit 1
+              fi
+              ;;
+            *)
+              echo "::error::Unknown model '$model' (use fable/opus/sonnet/haiku or a full claude-* id)."
+              exit 1
+              ;;
+          esac
+          echo "model=$model" >> "$GITHUB_OUTPUT"
+          echo "model: $model"
+
+      - name: Acknowledge
+        if: steps.gate.outputs.ok == 'true'
+        env:
+          GH_TOKEN: ${{ env.BOT_TOKEN }}
+        run: gh api -X POST "repos/${{ github.repository }}/issues/comments/${{ github.event.comment.id }}/reactions" -f content=eyes
+
+      # The EAS workflow uploads the working directory, so run it from the
+      # TRUSTED default branch — never the PR head. The PR under test reaches
+      # the investigation only as data (the pr_url input).
+      - name: Checkout default branch
+        if: steps.gate.outputs.ok == 'true'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Set up Node
+        if: steps.gate.outputs.ok == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Start the EAS investigation run
+        id: run
+        if: steps.gate.outputs.ok == 'true'
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          MODEL: ${{ steps.cmd.outputs.model }}
+        run: |
+          npm install -g --no-audit --no-fund --loglevel=error eas-cli@21.8.0
+          out=$(eas workflow:run .eas/workflows/verify-pr.yml \
+            -F "target_url=${TARGET_URL}" -F "model=${MODEL}" -F "requester=${REQUESTER}" \
+            --non-interactive --json)
+          run_id=$(printf '%s' "$out" | node -e '
+          let raw = ""; process.stdin.on("data", c => raw += c).on("end", () => {
+            try { const d = JSON.parse(raw); process.stdout.write(d.workflowRunId || d.id || ""); }
+            catch { /* leave empty */ }
+          });')
+          if [ -z "$run_id" ]; then
+            echo "::error::Could not parse the EAS run id from workflow:run output:"
+            printf '%s\n' "$out"
+            exit 1
+          fi
+          echo "run_url=https://expo.dev/accounts/sunrise-solutions/projects/summit-supply/workflows/${run_id}" >> "$GITHUB_OUTPUT"
+
+      - name: Announce run
+        if: steps.gate.outputs.ok == 'true'
+        env:
+          GH_TOKEN: ${{ env.BOT_TOKEN }}
+          RUN_URL: ${{ steps.run.outputs.run_url }}
+        run: |
+          gh issue comment "$PR_NUMBER" -R "${{ github.repository }}" --body \
+            "🔍 \`/verify\` started for @${REQUESTER} — [watch the investigation run](${RUN_URL}). Findings will be posted here when it completes."
+
+      # The gate passed and the trigger was real, so silence here would leave
+      # a dangling command. The EAS side owns its own failure reporting once
+      # its run exists; this covers everything before that.
+      - name: Report a start failure
+        if: always() && steps.gate.outputs.ok == 'true' && (failure() || cancelled())
+        env:
+          GH_TOKEN: ${{ env.BOT_TOKEN }}
+          GHA_RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          gh issue comment "$PR_NUMBER" -R "${{ github.repository }}" --body \
+            "⚠️ \`/verify\` could not start the investigation for @${REQUESTER}. [Trigger log](${GHA_RUN}) has the details; comment \`/verify\` again to retry."

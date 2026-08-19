@@ -1,0 +1,52 @@
+name: verify-pr
+
+# Started by scripts/verify-pr/watch.sh when someone comments
+# "@expo-bot verify [with <model>]" on a watched GitHub PR.
+#
+# One job does the whole investigation:
+#   phase A - an agent reads the PR, writes a minimal repro app, and starts
+#             two EAS simulator builds (base and patched),
+#   phase B - an agent drives an EAS Simulator session: reproduce the issue
+#             on the base build, then verify the fix on the patched build,
+#   phase C - the script uploads the evidence screenshots and posts the
+#             report comment on the PR.
+#
+# linux-medium on purpose: the simulator session and both builds run on EAS
+# macOS capacity elsewhere. A QA-style job that held a macOS worker itself
+# deadlocked the pool (see README).
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_url:
+        description: "GitHub PR or issue URL to verify"
+        required: true
+      model:
+        description: "Model id for the investigation agents"
+        default: "claude-fable-5"
+      requester:
+        description: "GitHub login that requested the verification"
+        default: ""
+
+jobs:
+  verify:
+    name: "Verify target"
+    environment: preview
+    runs_on: linux-medium
+    env:
+      TARGET_URL: ${{ inputs.target_url }}
+      AGENT_MODEL: ${{ inputs.model }}
+      REQUESTER: ${{ inputs.requester }}
+      RUN_URL: ${{ workflow.url }}
+    steps:
+      - uses: eas/checkout
+      - run: npm install -g --no-audit --no-fund --loglevel=error @swmansion/argent @anthropic-ai/claude-code eas-cli@21.8.0
+      - id: run_verification
+        run: bash ./scripts/verify-pr/run-verification.sh
+      - uses: eas/upload_artifact
+        if: ${{ always() }}
+        with:
+          type: other
+          name: verify-pr
+          path: |
+            artifacts/**/*
