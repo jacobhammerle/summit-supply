@@ -70,6 +70,16 @@
 #   IOS_SIM_DEVICE            - default iPhone 17
 set -euo pipefail
 
+# Artifacts exist from the very first line: the workflow's upload_artifact
+# step runs on always() and hard-fails on an empty match, which made every
+# early exit (like a missing env var) look like TWO failures in the run.
+mkdir -p ./artifacts/evidence ./work/context ./.bin
+{
+  echo "target: ${TARGET_URL:-${PR_URL:-unset}}"
+  echo "model:  ${AGENT_MODEL:-unset}"
+  echo "run:    ${RUN_URL:-unset}"
+} > ./artifacts/run-info.txt
+
 TARGET_URL="${TARGET_URL:-${PR_URL:-}}"
 : "${TARGET_URL:?TARGET_URL env is required}"
 : "${CLAUDE_CODE_OAUTH_TOKEN:?CLAUDE_CODE_OAUTH_TOKEN env is required}"
@@ -97,7 +107,22 @@ WORKSPACE="$(pwd)"
 echo "==> Target: ${PR_OWNER}/${PR_REPO}#${PR_NUM} (${KIND})"
 echo "==> Model:  ${AGENT_MODEL}"
 
-mkdir -p ./artifacts/evidence ./work/context ./.bin
+# Sessions bill until stopped, so stopping gets a retry and a loud warning
+# on failure — but never fails the run (the server also TTL-reaps sessions).
+stop_session() { # <session-id>
+  local sid="$1" attempt
+  for attempt in 1 2; do
+    # stderr silenced: eas-cli's update nag prints there and has no opt-out.
+    if eas simulator:stop --id "${sid}" --non-interactive 2>/dev/null; then
+      echo "==> Simulator session ${sid} stopped"
+      return 0
+    fi
+    echo "==> WARNING: simulator:stop attempt ${attempt} failed for ${sid}; retrying"
+    sleep 5
+  done
+  echo "==> WARNING: session ${sid} may still be running — check the sessions page."
+  return 0
+}
 
 # ---------------------------------------------------------------------------
 # Tokens. GH_TOKEN is for SCRIPT steps only — run_agent strips it (and the
@@ -138,8 +163,7 @@ cleanup() {
   local code=$?
   if [ -n "${SESSION_ID}" ]; then
     echo "==> Stopping EAS Simulator session ${SESSION_ID}"
-    # stderr silenced: eas-cli's update nag prints there and has no opt-out.
-    eas simulator:stop --id "${SESSION_ID}" --non-interactive 2>/dev/null || true
+    stop_session "${SESSION_ID}"
   fi
   # Salvage: an interrupted run often established real things before it died.
   # The agent's own narrative from the transcript is not a verdict, but it
@@ -790,7 +814,7 @@ run_agent "revise" 900 \
 ${REVIEW}" mcp "${CLAUDE_SESSION_ID}"
 
 # The session is no longer needed; stop it before publishing.
-eas simulator:stop --id "${SESSION_ID}" --non-interactive 2>/dev/null || true
+stop_session "${SESSION_ID}"
 SESSION_ID=""
 
 # ---------------------------------------------------------------------------

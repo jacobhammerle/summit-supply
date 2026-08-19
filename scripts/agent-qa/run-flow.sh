@@ -83,9 +83,19 @@ cleanup() {
     # stderr silenced: eas-cli's "a newer version is available" nag prints
     # there unconditionally (the plugin has no opt-out), and it fires exactly
     # here - the first eas call of the job seeds the version cache that this
-    # later call then reads. Stop success/failure still prints on stdout,
-    # and failures are tolerated (|| true) either way.
-    eas simulator:stop --id "${SESSION_ID}" --non-interactive 2>/dev/null || true
+    # later call then reads. A failed stop is retried once and then warned
+    # about loudly, but never fails the lane - the server also TTL-reaps
+    # sessions, and a passing QA verdict must not flip on a cleanup hiccup.
+    local attempt
+    for attempt in 1 2; do
+      if eas simulator:stop --id "${SESSION_ID}" --non-interactive 2>/dev/null; then
+        echo "==> Simulator session ${SESSION_ID} stopped"
+        return 0
+      fi
+      echo "==> WARNING: simulator:stop attempt ${attempt} failed for ${SESSION_ID}; retrying"
+      sleep 5
+    done
+    echo "==> WARNING: session ${SESSION_ID} may still be running — check the sessions page."
   fi
 }
 trap cleanup EXIT
