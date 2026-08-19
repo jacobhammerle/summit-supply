@@ -685,7 +685,10 @@ timeout 480 eas simulator:start \
   --out-config-type env \
   --non-interactive 2>&1 | tee "${START_OUT}" || START_FAILED=1
 
-SESSION_ID="$(grep -oE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' "${START_OUT}" | head -1 || true)"
+# Parse from the "created" line ONLY — the first UUID in the output can be
+# the "Overwriting previous simulator session" id, and stopping that one
+# leaves OUR session running (see the 2026-08-19 note in agent-qa/run-flow.sh).
+SESSION_ID="$(sed -n 's/.*Simulator session created (id: \([0-9a-f-]\{36\}\)).*/\1/p' "${START_OUT}" | head -1 || true)"
 if [ -n "${START_FAILED:-}" ]; then
   echo "==> ERROR: simulator session was not ready within 8 minutes."
   exit 1

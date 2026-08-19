@@ -76,7 +76,15 @@ timeout 480 eas simulator:start \
 # A session bills until it is stopped, so stop it on every exit path -
 # success, agent failure, an error under `set -e`, or a start timeout that
 # fired after the session was already created.
-SESSION_ID="$(grep -oE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' "${START_OUT}" | head -1 || true)"
+#
+# Parse the id from the "Simulator session created (id: ...)" line ONLY.
+# Grabbing the first UUID in the output stopped the WRONG session on
+# 2026-08-19: when the account has a previous session registered,
+# simulator:start first prints "Overwriting previous simulator session
+# (id: <old>)", so first-UUID picked the old id — every lane then stopped a
+# stale session and left its own running. Never stop that "previous" id
+# either: in a five-lane swarm it can be a SIBLING lane's live session.
+SESSION_ID="$(sed -n 's/.*Simulator session created (id: \([0-9a-f-]\{36\}\)).*/\1/p' "${START_OUT}" | head -1 || true)"
 cleanup() {
   if [ -n "${SESSION_ID}" ]; then
     echo "==> Stopping EAS Simulator session ${SESSION_ID}"
