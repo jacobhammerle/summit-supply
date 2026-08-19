@@ -177,9 +177,29 @@ jobs:
           MODEL: ${{ steps.cmd.outputs.model }}
         run: |
           npm install -g --no-audit --no-fund --loglevel=error eas-cli@21.8.0
-          out=$(eas workflow:run .eas/workflows/verify-pr.yml \
-            -F "target_url=${TARGET_URL}" -F "model=${MODEL}" -F "requester=${REQUESTER}" \
-            --non-interactive --json)
+          # Separate "bad token" from "bad request" before blaming either:
+          # whoami is the cheapest authenticated call there is.
+          if ! eas whoami --non-interactive >/dev/null 2>&1; then
+            echo "::error::EXPO_TOKEN is not a valid Expo token (eas whoami failed). Fix the EXPO_TOKEN repo secret."
+            exit 1
+          fi
+          # workflow:run is known to fail/hang transiently and succeed on an
+          # immediate retry (see the qa-swarm notes in the README). Retry
+          # once; on final failure, re-run with EXPO_DEBUG for a stack trace.
+          run_it() {
+            eas workflow:run .eas/workflows/verify-pr.yml \
+              -F "target_url=${TARGET_URL}" -F "model=${MODEL}" -F "requester=${REQUESTER}" \
+              --non-interactive --json
+          }
+          if ! out=$(run_it); then
+            echo "first workflow:run attempt failed; retrying once"
+            sleep 5
+            if ! out=$(run_it); then
+              echo "::error::eas workflow:run failed twice. Debug trace of a third attempt follows."
+              EXPO_DEBUG=1 run_it || true
+              exit 1
+            fi
+          fi
           run_id=$(printf '%s' "$out" | node -e '
           let raw = ""; process.stdin.on("data", c => raw += c).on("end", () => {
             try { const d = JSON.parse(raw); process.stdout.write(d.workflowRunId || d.id || ""); }
