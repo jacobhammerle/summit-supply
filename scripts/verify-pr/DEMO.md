@@ -1,92 +1,78 @@
 # Live demo runbook: `/verify` on summit-supply
 
-A two-act demo on this repo. Act 1: an issue reports a bug; the bot verifies
-it on an EAS Simulator and opens a fix PR. Act 2: `/verify` on that PR proves
-base-vs-head. Everything visible lives in the GitHub thread and on the EAS
-dashboard (workflow run graph + live simulator session).
+One staged issue + one staged PR, no bug planting on main. The PR adds a
+small feature; `/verify` proves the base build lacks it and the head build
+delivers it, with screenshot evidence, live on an EAS Simulator.
 
-## The planted bug
+## The staged feature
 
-Branch `demo/plant-settings-bug` (one commit on top of main) swaps two values
-in the settings summary line ([app/settings.tsx](../../app/settings.tsx)):
-after "Save changes", the summary reports the **Notifications** state under
-**Reminders** and the reverse. Repro: open Settings, turn Notifications OFF,
-leave Trip reminders ON, tap Save — the summary reads
-"Notifications: on · Reminders: off", which is backwards. Single screen,
-objectively checkable from the accessibility tree.
+Branch `demo/settings-reset` (one commit, `84aa81f`) adds a **"Reset to
+defaults"** button to the Settings screen ([app/settings.tsx](../../app/settings.tsx)):
+one tap returns Units to Imperial, Notifications to on, Trip reminders to
+off, persists them, and shows "Settings reset to defaults" with the values.
+On the base build that button does not exist — both facts are objectively
+checkable from the accessibility tree.
 
-## One-time setup (before demo day)
+## Stage it (once, before demo day)
 
-1. Merge the harness to main (the `issue_comment` trigger only fires from the
-   default branch), and merge/push `demo/plant-settings-bug` to main too:
+```bash
+git push origin main demo/settings-reset
+```
 
-   ```bash
-   git push origin main demo/plant-settings-bug
-   git merge demo/plant-settings-bug && git push   # bug must be ON main for Act 1
-   ```
+1. File the issue (feature request, reporter voice):
 
-2. GitHub repo secrets (Settings → Secrets and variables → Actions):
-   - `EXPO_TOKEN` — the robot token (same value as `EAS_SIMULATOR_EXPO_TOKEN`).
-   - `VERIFY_BOT_GH_TOKEN` — optional bot identity for ack comments.
-
-3. Make this repo **public** (Settings → General → Danger Zone → Change
-   visibility). Evidence screenshots upload to this repo's `evidence` branch
-   (auto-created) and only render in comments if the repo is public. Then
-   set the EAS secret:
-
-   ```bash
-   eas env:set --name VERIFY_GITHUB_TOKEN --value <token with repo scope> \
-     --environment preview --visibility secret
-   ```
-
-4. **Rehearse once** (see timing below): file a throwaway issue, comment
-   `/verify`, watch the whole run, delete the throwaway thread. The rehearsal
-   also surfaces any first-run gotcha while nobody is watching.
-
-## Act 1 — issue → verified bug → fix PR
-
-1. File the issue (reporter voice, no fix hints):
-
-   > **Title:** Settings summary shows Notifications and Reminders swapped
+   > **Title:** Add a way to reset settings to their defaults
    >
-   > After changing settings and tapping "Save changes", the confirmation
-   > summary reports the wrong states: I turned Notifications off and left
-   > Trip reminders on, but the summary says "Notifications: on ·
-   > Reminders: off". The toggles themselves look right; only the saved
-   > summary is wrong. Seen on iOS.
+   > After experimenting with units and the alert toggles, there is no quick
+   > way back to the app's defaults — I have to remember what they were and
+   > flip everything by hand. A one-tap "Reset to defaults" on the Settings
+   > screen would make this much easier.
 
-2. Comment on the issue:
+2. Open the PR from `demo/settings-reset` into `main`:
 
-   ```
-   @expo-bot verify with fable
-   ```
+   > **Title:** Settings: add a Reset to defaults action
+   >
+   > **Body:** Adds a bordered "Reset to defaults" button under Save. It
+   > returns the Units picker, Notifications, and Trip reminders to the
+   > StoreProvider defaults (imperial / on / off), persists them
+   > immediately, and shows a confirmation caption with the resulting
+   > values. Closes #<issue number>.
 
-3. Narrate while it runs: 👀 reaction (~5 s), announce comment with the EAS
-   run link (~1 min), then on the EAS dashboard: the job log streams the
-   agent turns; the simulator session appears on the project's
+   The `Closes #<n>` reference matters: the pipeline pulls the linked issue
+   into the agent's context.
+
+## The demo
+
+Comment on the PR:
+
+```
+@expo-bot verify with fable
+```
+
+Narration beats while it runs:
+
+1. 👀 reaction lands in seconds; the announce comment follows with the EAS
+   run link (~1 min).
+2. On the EAS dashboard: the job log streams the planner and investigation
+   agents live; the simulator session appears on the project's
    [Simulator sessions](https://expo.dev/accounts/sunrise-solutions/projects/summit-supply/simulator-sessions) page.
+3. Base and head builds run in parallel while the planner reads the PR and
+   the linked issue and writes the test plan.
+4. The findings comment: outcome `fix-verified`, a base-vs-head evidence
+   table (Settings without the button; the reset confirmation after the
+   tap), and a draft that survived an adversarial review before posting.
 
-4. Outcome: a findings comment on the issue (outcome `fix-verified`, evidence
-   table with base-vs-fix screenshots) plus a bannered fix PR that says
-   `Fixes #<n>`.
-
-## Act 2 — `/verify` on the fix PR
-
-Comment on the bot's PR (or any PR):
-
-```
-/verify
-```
-
-Same flow, PR mode: base build (bug) vs head build (fixed), findings posted
-on the PR. If nobody pushed meanwhile, no "PR moved" warning appears.
+Optional second act: comment `@expo-bot verify` on the **issue** instead.
+Issue mode verifies the request against `main` and, because the feature is
+small, may author and verify its own implementation and open a fix PR.
+Higher variance — rehearse it before doing it live.
 
 ## Timing budget (rehearse to confirm)
 
 - Trigger → announce: under a minute.
-- EAS job: two iOS simulator builds in parallel (~10–15 min; the planner
-  agent runs while they bake), simulator session ~1.5 min, investigation
-  5–10 min, critic + revise ~5 min. Expect **25–40 min** end to end.
+- EAS job: two iOS builds in parallel (~10–15 min, planner runs meanwhile),
+  simulator session ~1.5 min, investigation 5–10 min, critic + revise ~5
+  min. Expect **25–40 min** end to end.
 - Fill: the qa-swarm run (`eas workflow:run .eas/workflows/qa-swarm.yml`)
   makes good stage business while the verify builds bake.
 
@@ -96,6 +82,6 @@ on the PR. If nobody pushed meanwhile, no "PR moved" warning appears.
   run link and salvaged partial notes — the thread never dangles.
 - The preflight canary stops the run before builds if the model credential
   or the file rules are broken.
-- If the evidence repo is missing, the report still posts (images degrade to
-  a note pointing at the run artifacts).
+- If evidence upload fails, the report still posts with a note pointing at
+  the run artifacts.
 - A second `/verify` on the same thread queues; it does not cancel the first.

@@ -50,10 +50,16 @@ review. Use this structure:
 
 The first line carries the outcome. On a PR target use:
 `fix-verified | fix-not-verified | could-not-reproduce | inconclusive`.
-On an ISSUE target use: `fix-verified` (bug reproduced on base AND the
-proposed fix verified), `bug-confirmed` (bug reproduced; no fix build to
-test), `bug-not-reproduced`, or `inconclusive`. The harness opens the fix PR
-only when the first line says `fix-verified` — never claim it otherwise.
+For a FEATURE PR the same vocabulary applies: `fix-verified` means the base
+build lacked the behavior AND the head build exhibits it as described;
+`could-not-reproduce` means the base build already had the behavior.
+On an ISSUE target use: `fix-verified` (the report confirmed on base AND the
+proposed change verified on the fix build), `bug-confirmed` (the report
+confirmed — the bug fires, or the requested capability is indeed missing —
+but there is no fix build to test), `bug-not-reproduced` (the bug does not
+fire, or the requested capability already exists), or `inconclusive`. The
+harness opens the fix PR only when the first line says `fix-verified` —
+never claim it otherwise.
 
 ```
 **Outcome: <fix-verified | fix-not-verified | bug-confirmed | bug-not-reproduced | could-not-reproduce | inconclusive>**

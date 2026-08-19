@@ -255,6 +255,6 @@ fire it (GitHub rule for `issue_comment`).
 
 ### Demo
 
-`scripts/verify-pr/DEMO.md` is the two-act runbook: file an issue about the
-planted settings bug (`demo/plant-settings-bug`), let the bot verify it and
-open a fix PR, then run `/verify` on that PR.
+`scripts/verify-pr/DEMO.md` is the runbook: a staged feature-request issue
+plus a staged PR from `demo/settings-reset` (adds "Reset to defaults" to
+Settings), then `/verify` on the PR proves base-vs-head with evidence.
