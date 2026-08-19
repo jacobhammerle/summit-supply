@@ -64,13 +64,30 @@ jobs:
       REQUESTER: ${{ github.event.comment.user.login }}
       BOT_TOKEN: ${{ secrets.VERIFY_BOT_GH_TOKEN || secrets.GITHUB_TOKEN }}
     steps:
+      # The optional bot token can be absent — or present but not a valid
+      # GitHub token (run 32266230045: an Expo token stored under this name
+      # 401'd every comment step, including the failure reporter, so the
+      # thread went silent). Validate it ONCE; every comment step below falls
+      # back to the workflow's own GITHUB_TOKEN when it is unusable.
+      - name: Pick comment token
+        id: tok
+        env:
+          GH_TOKEN: ${{ env.BOT_TOKEN }}
+        run: |
+          if gh api user --jq .login >/dev/null 2>&1; then
+            echo "bot_ok=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "bot_ok=false" >> "$GITHUB_OUTPUT"
+            echo "VERIFY_BOT_GH_TOKEN is missing or not a valid GitHub token; comments will post as github-actions[bot]."
+          fi
+
       # author_association does not prove write access on this repo; ask the
       # collaborators API. Fails quietly (log only): a drive-by comment from a
       # non-writer should not get a public bot reply.
       - name: Require write access
         id: gate
         env:
-          GH_TOKEN: ${{ env.BOT_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ACTOR: ${{ github.event.comment.user.login }}
           ASSOCIATION: ${{ github.event.comment.author_association }}
         run: |
@@ -133,7 +150,7 @@ jobs:
       - name: Acknowledge
         if: steps.gate.outputs.ok == 'true'
         env:
-          GH_TOKEN: ${{ env.BOT_TOKEN }}
+          GH_TOKEN: ${{ steps.tok.outputs.bot_ok == 'true' && env.BOT_TOKEN || secrets.GITHUB_TOKEN }}
         run: gh api -X POST "repos/${{ github.repository }}/issues/comments/${{ github.event.comment.id }}/reactions" -f content=eyes
 
       # The EAS workflow uploads the working directory, so run it from the
@@ -178,7 +195,7 @@ jobs:
       - name: Announce run
         if: steps.gate.outputs.ok == 'true'
         env:
-          GH_TOKEN: ${{ env.BOT_TOKEN }}
+          GH_TOKEN: ${{ steps.tok.outputs.bot_ok == 'true' && env.BOT_TOKEN || secrets.GITHUB_TOKEN }}
           RUN_URL: ${{ steps.run.outputs.run_url }}
         run: |
           gh issue comment "$PR_NUMBER" -R "${{ github.repository }}" --body \
@@ -190,7 +207,7 @@ jobs:
       - name: Report a start failure
         if: always() && steps.gate.outputs.ok == 'true' && (failure() || cancelled())
         env:
-          GH_TOKEN: ${{ env.BOT_TOKEN }}
+          GH_TOKEN: ${{ steps.tok.outputs.bot_ok == 'true' && env.BOT_TOKEN || secrets.GITHUB_TOKEN }}
           GHA_RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           gh issue comment "$PR_NUMBER" -R "${{ github.repository }}" --body \
